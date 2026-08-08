@@ -1,0 +1,4 @@
+return_id,order_id,reason,return_date
+1,102,Defective,2026-01-25
+2,106,Changed mind,2026-02-20
+3,110,Wrong item,2026-03-22
