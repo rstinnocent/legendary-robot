@@ -22,7 +22,7 @@ import streamlit as st
 
 from chart_plan import ChartPlanError, RECIPE_HEADLINE_METRICS, generate_chart_plan, validate_plan
 from charts import execute_chart_plan
-from core import answer_question, get_backend, load_files
+from core import answer_question, get_backend, load_files, sanitize_name
 from findings import compute_findings, phrase_findings
 from profiler import detect_join_keys, profile_frames
 from ui_helpers import (
@@ -83,29 +83,40 @@ def _ingest_files(file_bytes: dict[str, bytes]) -> None:
     moment someone used "Add more files" to add a fourth file to three
     already-loaded ones.
 
-    Also only reload when `file_bytes` actually contains a new filename: a
-    Streamlit rerun fires on every widget interaction, and the sidebar
-    uploader keeps reporting the same files on every one of them — without
-    this guard, every rerun (asking a question, anything) would look like a
-    fresh upload and wipe the overview and Q&A history.
+    "Already loaded" is judged against st.session_state.frames itself
+    (via each incoming file's sanitized name), not a separate "seen
+    filenames" set: a Streamlit rerun fires on every widget interaction,
+    and the sidebar uploader keeps reporting the same files on every one of
+    them, so *something* has to stop that from re-triggering a reset on
+    every rerun — but checking the real frames dict, rather than a set that
+    only ever grows, means removing a file and re-dropping the same name
+    later correctly loads it again instead of being silently ignored as
+    "already seen".
 
     Known limitation: re-uploading a *different* file under a name already
-    seen (e.g. a corrected employees.csv) is treated as nothing new and
-    silently ignored, rather than replacing the earlier version — good
-    enough for "add more files", not a general re-upload/replace feature.
+    loaded (e.g. a corrected employees.csv, without removing the old one
+    first) is treated as nothing new and silently ignored — good enough for
+    "add more files", not a general re-upload/replace-in-place feature.
     """
     if not file_bytes:
         return
-    already_ingested = st.session_state.get("_ingested_filenames", set())
-    if set(file_bytes.keys()) <= already_ingested:
+    current_frames = st.session_state.get("frames", {})
+    new_bytes = {name: data for name, data in file_bytes.items()
+                 if sanitize_name(name) not in current_frames}
+    if not new_bytes:
         return
     try:
-        new_frames = load_files(file_bytes)
+        new_frames = load_files(new_bytes)
     except Exception as exc:
         st.error(f"Couldn't read one of the files: {exc}")
         return
-    st.session_state.frames = {**st.session_state.get("frames", {}), **new_frames}
-    st.session_state._ingested_filenames = already_ingested | set(file_bytes.keys())
+    st.session_state.frames = {**current_frames, **new_frames}
+    st.session_state.analysis = None
+    st.session_state.qa_history = []
+
+
+def _remove_file(name: str) -> None:
+    st.session_state.frames.pop(name, None)
     st.session_state.analysis = None
     st.session_state.qa_history = []
 
@@ -137,7 +148,7 @@ def _ask(question: str, frames: dict) -> None:
 # ---------------------------------------------------------------- state ---
 for key, default in [
     ("frames", {}), ("analysis", None), ("qa_history", []),
-    ("_ingested_filenames", set()), ("pending_question", None),
+    ("pending_question", None),
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
@@ -174,8 +185,12 @@ with st.sidebar:
         _ingest_files({f.name: f.getvalue() for f in uploaded} if uploaded else {})
         frames_now = st.session_state.frames
         st.subheader(f"Files ({len(frames_now)})")
-        for name, df in frames_now.items():
-            st.caption(f"**{name}** — {len(df):,} rows · {len(df.columns)} cols")
+        for name, df in list(frames_now.items()):
+            row_col, remove_col = st.columns([5, 1])
+            row_col.caption(f"**{name}** — {len(df):,} rows · {len(df.columns)} cols")
+            if remove_col.button("✕", key=f"remove_{name}", help=f"Remove {name}"):
+                _remove_file(name)
+                st.rerun()
     else:
         uploaded = None
 
