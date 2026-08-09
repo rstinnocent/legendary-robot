@@ -110,6 +110,18 @@ def question_for_spec(spec) -> str | None:
     return None
 
 
+def chart_section_label(titles: list[str], max_named: int = 2) -> str:
+    """Label for the collapsed charts expander — names the first few charts
+    rather than just saying 'Charts', so the count and the "+N more" tail
+    tell someone whether it's worth a click before they open it."""
+    if not titles:
+        return "📊 Charts"
+    shown = ", ".join(titles[:max_named])
+    remainder = len(titles) - max_named
+    tail = f" +{remainder} more" if remainder > 0 else ""
+    return f"📊 {len(titles)} charts: {shown}{tail}"
+
+
 # ---------------------------------------------------------------------------
 # Answer-state classification — drives which of 3e's boxes to render
 # ---------------------------------------------------------------------------

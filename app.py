@@ -27,6 +27,7 @@ from findings import compute_findings, phrase_findings
 from profiler import detect_join_keys, profile_frames
 from ui_helpers import (
     chart_caption,
+    chart_section_label,
     classify_answer_state,
     dataframe_to_csv_bytes,
     question_for_spec,
@@ -266,7 +267,8 @@ else:
 
     st.markdown('<a name="charts"></a>', unsafe_allow_html=True)
     if chart_items:
-        with st.expander(f"📊 Charts ({len(chart_items)})", expanded=True):
+        label = chart_section_label([spec.title for spec, _ in chart_items])
+        with st.expander(label, expanded=False):
             hero_spec, hero_result = chart_items[0]
             # Constrained to ~2/3 width rather than the full page: st.pyplot
             # preserves the figure's own aspect ratio when stretched, so a

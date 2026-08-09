@@ -7,6 +7,7 @@ from core import ExecutionResult
 from profiler import detect_join_keys, profile_frames
 from ui_helpers import (
     chart_caption,
+    chart_section_label,
     classify_answer_state,
     dataframe_to_csv_bytes,
     question_for_spec,
@@ -125,6 +126,31 @@ def test_question_for_cross_file_measure_without_measure():
 def test_question_for_headline_metrics_is_none():
     spec = ChartSpec(recipe="headline_metrics", title="t", metrics=[])
     assert question_for_spec(spec) is None
+
+
+# ---------------------------------------------------------------------------
+# chart_section_label
+# ---------------------------------------------------------------------------
+
+def test_chart_section_label_names_titles_within_max():
+    label = chart_section_label(["Department Distribution", "Grade Distribution"])
+    assert label == "📊 2 charts: Department Distribution, Grade Distribution"
+
+
+def test_chart_section_label_truncates_with_remainder_count():
+    label = chart_section_label(
+        ["Department Distribution", "Grade Distribution", "Attendance Over Time", "Exit Type by Reason"]
+    )
+    assert label == "📊 4 charts: Department Distribution, Grade Distribution +2 more"
+
+
+def test_chart_section_label_empty():
+    assert chart_section_label([]) == "📊 Charts"
+
+
+def test_chart_section_label_respects_max_named():
+    label = chart_section_label(["A", "B", "C"], max_named=1)
+    assert label == "📊 3 charts: A +2 more"
 
 
 # ---------------------------------------------------------------------------
