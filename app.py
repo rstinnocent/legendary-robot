@@ -266,59 +266,60 @@ else:
 
     st.markdown('<a name="charts"></a>', unsafe_allow_html=True)
     if chart_items:
-        hero_spec, hero_result = chart_items[0]
-        # Constrained to ~2/3 width rather than the full page: st.pyplot
-        # preserves the figure's own aspect ratio when stretched, so a
-        # full-width container blows the height up proportionally too.
-        hero_col, _ = st.columns([2, 1])
-        with hero_col, st.container(border=True):
-            st.markdown(f"**{hero_spec.title}**")
-            if hero_result.error:
-                st.warning(hero_result.error)
-            elif hero_result.figure is not None:
-                st.pyplot(hero_result.figure)
-            elif hero_result.table is not None:
-                st.dataframe(hero_result.table)
-            caption = chart_caption(hero_spec, hero_result)
-            if caption:
-                st.markdown(f'<div class="in-caption">{html.escape(caption)}</div>', unsafe_allow_html=True)
-            act1, act2 = st.columns(2)
-            with act1:
-                with st.popover("view recipe"):
-                    st.code(f"{hero_spec.recipe}({hero_spec.__dict__})", language="python")
-            with act2:
-                q = question_for_spec(hero_spec)
-                if q and st.button("ask about this", key="ask_hero"):
-                    st.session_state.pending_question = q
-                    st.rerun()
+        with st.expander(f"📊 Charts ({len(chart_items)})", expanded=True):
+            hero_spec, hero_result = chart_items[0]
+            # Constrained to ~2/3 width rather than the full page: st.pyplot
+            # preserves the figure's own aspect ratio when stretched, so a
+            # full-width container blows the height up proportionally too.
+            hero_col, _ = st.columns([2, 1])
+            with hero_col, st.container(border=True):
+                st.markdown(f"**{hero_spec.title}**")
+                if hero_result.error:
+                    st.warning(hero_result.error)
+                elif hero_result.figure is not None:
+                    st.pyplot(hero_result.figure)
+                elif hero_result.table is not None:
+                    st.dataframe(hero_result.table)
+                caption = chart_caption(hero_spec, hero_result)
+                if caption:
+                    st.markdown(f'<div class="in-caption">{html.escape(caption)}</div>', unsafe_allow_html=True)
+                act1, act2 = st.columns(2)
+                with act1:
+                    with st.popover("view recipe"):
+                        st.code(f"{hero_spec.recipe}({hero_spec.__dict__})", language="python")
+                with act2:
+                    q = question_for_spec(hero_spec)
+                    if q and st.button("ask about this", key="ask_hero"):
+                        st.session_state.pending_question = q
+                        st.rerun()
 
-        rest = chart_items[1:]
-        for row_start in range(0, len(rest), 3):
-            row = rest[row_start:row_start + 3]
-            cols = st.columns(len(row))
-            for col, (spec, result) in zip(cols, row):
-                with col:
-                    with st.container(border=True):
-                        st.markdown(f"**{spec.title}**")
-                        if result.error:
-                            st.warning(result.error)
-                        elif result.figure is not None:
-                            st.pyplot(result.figure)
-                        elif result.table is not None:
-                            st.dataframe(result.table)
-                        caption = chart_caption(spec, result)
-                        if caption:
-                            st.markdown(f'<div class="in-caption">{html.escape(caption)}</div>',
-                                        unsafe_allow_html=True)
-                        b1, b2 = st.columns(2)
-                        with b1:
-                            with st.popover("recipe"):
-                                st.code(f"{spec.recipe}({spec.__dict__})", language="python")
-                        with b2:
-                            q = question_for_spec(spec)
-                            if q and st.button("ask", key=f"ask_{row_start}_{spec.title}"):
-                                st.session_state.pending_question = q
-                                st.rerun()
+            rest = chart_items[1:]
+            for row_start in range(0, len(rest), 3):
+                row = rest[row_start:row_start + 3]
+                cols = st.columns(len(row))
+                for col, (spec, result) in zip(cols, row):
+                    with col:
+                        with st.container(border=True):
+                            st.markdown(f"**{spec.title}**")
+                            if result.error:
+                                st.warning(result.error)
+                            elif result.figure is not None:
+                                st.pyplot(result.figure)
+                            elif result.table is not None:
+                                st.dataframe(result.table)
+                            caption = chart_caption(spec, result)
+                            if caption:
+                                st.markdown(f'<div class="in-caption">{html.escape(caption)}</div>',
+                                            unsafe_allow_html=True)
+                            b1, b2 = st.columns(2)
+                            with b1:
+                                with st.popover("recipe"):
+                                    st.code(f"{spec.recipe}({spec.__dict__})", language="python")
+                            with b2:
+                                q = question_for_spec(spec)
+                                if q and st.button("ask", key=f"ask_{row_start}_{spec.title}"):
+                                    st.session_state.pending_question = q
+                                    st.rerun()
 
 st.divider()
 
