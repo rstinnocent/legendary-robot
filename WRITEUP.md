@@ -51,12 +51,29 @@ restricted builtins and a blocklist for `os`, `eval`, file I/O and dunder
 access. Deliberately blunt — adequate for a demo with known dependencies, not
 something I'd ship for untrusted multi-tenant use.
 
+**Auto-analysis: the model picks from a menu, it never computes.** Beyond
+Q&A, clicking Analyze shows an overview before any question is asked —
+headline metrics, 5-6 charts, and a "what stands out" panel. The temptation
+here was to let the model reason freely about the data, the same way Q&A
+does; I didn't, because a wrong number in an unprompted overview is a worse
+trust failure than a wrong answer to a question the user actually asked. So
+a local pandas profiler assigns each column a role (identifier / dimension /
+measure / date / skip) and finds cross-file join keys by real value overlap;
+one LLM call picks chart specs from a fixed 6-recipe set and is validated
+against the real schema before anything runs; "what stands out" is the same
+split in reverse — four pandas functions compute candidate findings (largest
+gap between groups, a time trend, an outlier group, joined-vs-not-joined),
+and the model only rewrites the top 3 into plain sentences. Slower to build
+than one open-ended "analyze this" prompt, but the arithmetic never touches
+the model, which is the same bet the Q&A engine already made.
+
 ## What I deliberately cut
 
 - **Live dashboards / what-if calculators** — a real need, and the most
   seductive idea I considered, but a different product: "let me explore"
   rather than "tell me the number". It would have eaten the time box and left
-  the three named criteria half-done.
+  the three named criteria half-done. The Analyze overview is a fixed
+  snapshot, not this — no sliders, no live recompute.
 - **Cleaning arbitrarily messy spreadsheets** — unbounded scope with no natural
   stopping point. Scoped to reasonably tabular data and said so.
 
@@ -68,6 +85,7 @@ something I'd ship for untrusted multi-tenant use.
    once before surfacing it. Cheap, and should lift the eval score.
 3. **Real sandboxing** — subprocess or container with resource/time limits,
    before this ever sees untrusted input.
-4. **Widen the eval set to ~50 cases** and track score per model, so the model
-   choice becomes evidence-based rather than a default.
+4. **Widen both eval sets** — ~50 Q&A cases and more auto-analysis datasets
+   beyond the one HR sample — and track score per model, so the model choice
+   becomes evidence-based rather than a default.
 5. **DuckDB behind the same interface** once files outgrow memory.
