@@ -202,6 +202,7 @@ def _join_difference_candidates(
                 effect_size=abs(diff) / overall_std,
                 numbers={
                     "base_frame": base_frame, "subset_frame": subset_frame, "measure": measure,
+                    "base_col": base_col, "subset_col": subset_col,
                     "joined_mean": float(joined_mean), "unjoined_mean": float(unjoined_mean),
                     "diff": float(diff),
                 },
