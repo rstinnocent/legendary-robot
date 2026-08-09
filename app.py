@@ -31,6 +31,7 @@ from ui_helpers import (
     classify_answer_state,
     dataframe_to_csv_bytes,
     format_metric_value,
+    pluralize,
     question_for_spec,
     safe_download_filename,
     suggested_questions,
@@ -187,7 +188,7 @@ with st.sidebar:
         st.subheader(f"Files ({len(frames_now)})")
         for name, df in list(frames_now.items()):
             row_col, remove_col = st.columns([5, 1])
-            row_col.caption(f"**{name}** — {len(df):,} rows · {len(df.columns)} cols")
+            row_col.caption(f"**{name}** — {pluralize(len(df), 'row')} · {pluralize(len(df.columns), 'col')}")
             if remove_col.button("✕", key=f"remove_{name}", help=f"Remove {name}"):
                 _remove_file(name)
                 st.rerun()
@@ -221,7 +222,7 @@ if not frames:
 
 # ------------------------------------------------------- files loaded -----
 total_rows = sum(len(df) for df in frames.values())
-_header(f"{len(frames)} files · {total_rows:,} rows")
+_header(f"{pluralize(len(frames), 'file')} · {pluralize(total_rows, 'row')}")
 
 profiles = profile_frames(frames)
 join_keys = detect_join_keys(frames, profiles)

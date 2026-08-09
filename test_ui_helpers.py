@@ -12,6 +12,7 @@ from ui_helpers import (
     classify_answer_state,
     dataframe_to_csv_bytes,
     format_metric_value,
+    pluralize,
     question_for_spec,
     safe_download_filename,
     suggested_questions,
@@ -64,6 +65,35 @@ def test_format_metric_value_numpy_float64():
 
 def test_format_metric_value_non_numeric_passthrough():
     assert format_metric_value("Engineering") == "Engineering"
+
+
+# ---------------------------------------------------------------------------
+# pluralize
+# ---------------------------------------------------------------------------
+
+def test_pluralize_singular():
+    assert pluralize(1, "file") == "1 file"
+
+
+def test_pluralize_plural():
+    assert pluralize(3, "file") == "3 files"
+
+
+def test_pluralize_zero_is_plural():
+    assert pluralize(0, "file") == "0 files"
+
+
+def test_pluralize_default_plural_is_singular_plus_s():
+    assert pluralize(1, "col") == "1 col"
+    assert pluralize(2, "col") == "2 cols"
+
+
+def test_pluralize_explicit_irregular_plural():
+    assert pluralize(2, "box", "boxes") == "2 boxes"
+
+
+def test_pluralize_large_count_gets_comma_formatted():
+    assert pluralize(1234, "row") == "1,234 rows"
 
 
 # ---------------------------------------------------------------------------

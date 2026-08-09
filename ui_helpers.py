@@ -56,6 +56,14 @@ def format_metric_value(value) -> str:
     return f"{value:,.0f}" if pd.api.types.is_number(value) else str(value)
 
 
+def pluralize(count: int, singular: str, plural: str | None = None) -> str:
+    """'1 file' / '3 files' / '292 rows' — the header tag renders a fresh
+    count on every rerun (files added, files removed), so this can't be
+    hand-written per call site the way a static label could."""
+    word = singular if count == 1 else (plural or f"{singular}s")
+    return f"{count:,} {word}"
+
+
 # ---------------------------------------------------------------------------
 # Chart captions — one deterministic line per chart, from its own table
 # ---------------------------------------------------------------------------
