@@ -67,6 +67,22 @@ and the model only rewrites the top 3 into plain sentences. Slower to build
 than one open-ended "analyze this" prompt, but the arithmetic never touches
 the model, which is the same bet the Q&A engine already made.
 
+**Redesigning the UI from wireframes, on a branch.** After the working
+prototype was in a submittable state, I explored a UI direction through a
+set of wireframes (Claude's design-canvas tool) covering upload, files-
+loaded, the auto-analysis overview, and Q&A — several layout options per
+screen, converging to one design per screen with explicit Streamlit
+component mappings. I implemented that converged design (renamed the app
+Crosswalk — a crosswalk is literally a table that maps fields across
+datasets, which is what the join detection does) entirely on a separate
+branch rather than in place, specifically so the already-tested, already-
+reviewed submission on `master` was never at risk while I iterated on
+layout. Two rounds of feedback after the first pass — the auto-generated
+charts were dominating the screen, and the chart section needed to default
+collapsed with a label that says what's in it before you click — went
+through the same test-then-verify-live loop as the rest of the build,
+not just a visual tweak taken on faith.
+
 ## What I deliberately cut
 
 - **Live dashboards / what-if calculators** — a real need, and the most

@@ -1,9 +1,14 @@
-# AI-Powered Data Q&A
+# Crosswalk
 
-Upload one or more CSV/Excel files, get an automatic overview — headline
-metrics, a handful of charts, and the findings that actually stand out —
-then ask follow-up questions in plain English and get back an answer: a
-number, a table, or a chart, plus the exact pandas code that produced it.
+Upload CSV/Excel files that belong together, get an automatic overview —
+headline metrics, a handful of charts, and the findings that actually stand
+out — then ask follow-up questions in plain English and get back an answer:
+a number, a table, or a chart, plus the exact pandas code that produced it.
+
+Named for the data term: a *crosswalk* is a table that maps fields across
+datasets so they can be joined. Detecting those joins automatically, across
+whatever files you upload, is the app's differentiator — see
+[How this maps to the acceptance criteria](#how-this-maps-to-the-acceptance-criteria).
 
 ## Quick start
 
@@ -18,11 +23,15 @@ export GROQ_API_KEY=your_key_here        # or paste it into the app sidebar
 streamlit run app.py
 ```
 
-Then open the local URL Streamlit prints, upload all three files from
-`sample_data/` (or your own), and click **Analyze** for an automatic
-overview — headline metrics, five to six charts the model judged worth
-showing for this specific data, and a "what stands out" panel — before
-asking anything at all. Then try a question like:
+Then open the local URL Streamlit prints. With no files loaded yet, drop
+CSV/Excel files in or click **"or try it with sample HR data →"** to load
+`sample_data/` instead. Once files are in, the sidebar lists them and the
+main area previews each file's schema plus any cross-file join keys it
+found; click the centered **Analyze** button for an automatic overview —
+headline metrics, a "what stands out" panel, and a collapsible charts
+section (closed by default, labeled with the actual chart titles so you
+know what's behind the click before opening it) — before asking anything at
+all. Then try a question like:
 
 - "What is the headcount in each department?"
 - "Which department has the highest average CTC?"
@@ -31,6 +40,11 @@ asking anything at all. Then try a question like:
 - "Plot the trend of total leave days by month"
 - "What is the average performance rating by department?" *(there is no such
   column — the app should say so rather than invent a number)*
+
+Every chart card also has an **"ask about this"** button that runs that
+chart's underlying question through the same Q&A engine and drops it into
+the question history below — and the Q&A history itself supports pinning an
+answer to the top and exporting a table result as CSV.
 
 No Groq key handy, or want zero external dependency? Switch the sidebar to
 **Ollama (local)** — run `ollama serve` and `ollama pull llama3.2` first.
@@ -59,8 +73,9 @@ gets it silently wrong. There is an eval case for exactly this.
 | LLM (fallback) | [Ollama](https://ollama.com) running locally | Zero external dependency at all, for a fully offline compliant run |
 | Analysis engine | Custom "text-to-pandas-code" agent (`core.py`) | The LLM writes short pandas/matplotlib code against the uploaded dataframes, executed in a restricted namespace. Chosen over PandasAI so every answer is inspectable — the generated code is shown in the UI next to the result, and the whole pipeline is ~250 lines I can walk through line by line |
 | Auto-analysis engine | Local pandas profiler + constrained chart-plan (`profiler.py`, `chart_plan.py`, `charts.py`, `findings.py`) | The overview screen shown before any question is asked. The model picks from a fixed menu of 6 chart recipes and only *phrases* pre-computed findings — it never produces a number itself. See below |
+| UI logic | `ui_helpers.py` | Pure functions the UI runs on — chart captions, calm/error/normal answer classification, join-prioritized suggested questions — kept out of `app.py` so they're unit-testable the same way the engine is |
 | Correctness | 12-case Q&A eval set + 3-check auto-analysis eval (`evals/`), all against hand-computed or independently-recomputed answers | "Correct" is the product. See below |
-| Testing | pytest — 111 tests, LLM mocked via `FakeBackend` | Verifies loading, joins, charts, the safety filter, the profiler's column-role logic, chart-plan validation, and both eval sets — all without hitting a live API |
+| Testing | pytest — 145 tests, LLM mocked via `FakeBackend` | Verifies loading, joins, charts, the safety filter, the profiler's column-role logic, chart-plan validation, UI display logic, and both eval sets — all without hitting a live API |
 
 ## How this maps to the acceptance criteria
 
@@ -100,13 +115,25 @@ into one plain sentence each — never computing them — and if that call fails
 or returns something malformed, the deterministic description is shown
 as-is instead.
 
+The charts themselves render inside a collapsible section, closed by
+default, labeled with the actual chart titles (e.g. "5 charts: Department
+Distribution, Grade Distribution +3 more") rather than a plain "Charts (5)"
+— so it's clear what's behind the click before you open it, and the Q&A
+section underneath isn't pushed off-screen by a wall of charts on first
+load. The first chart is shown larger as a "hero" (constrained to about
+2/3 of the page width, not the full page — `st.pyplot` preserves a
+figure's aspect ratio when stretched, so full-width also means very tall);
+the rest sit in a 3-across grid. Every card carries an "ask about this"
+button that turns that chart's spec back into a plain-English question
+(`ui_helpers.question_for_spec`) and runs it through the real Q&A engine.
+
 ## Evals — how I know the answers are right
 
 A data Q&A tool that is confidently wrong is worse than one that says nothing,
 so correctness is measured rather than eyeballed.
 
 ```bash
-pytest                          # 111 unit tests, no API key needed
+pytest                          # 145 unit tests, no API key needed
 python evals/run_eval.py        # runs the 12-case Q&A set against the live model
 python evals/run_eval.py --runs 3            # repeat to see run-to-run variance
 python evals/eval_auto_analysis.py           # checks the auto-analysis pipeline live
@@ -143,14 +170,15 @@ model's phrased sentence.
 ## Project structure
 
 ```
-app.py                    # Streamlit UI — Q&A plus the Analyze overview
+app.py                    # Streamlit UI — upload, schema/join preview, Analyze overview, Q&A
 core.py                   # loading, prompt building, safe execution, LLM backends
 test_core.py              # pytest suite for the Q&A engine
 profiler.py                # column roles + cross-file join detection (no LLM)
 chart_plan.py              # LLM chart-plan call + validation
 charts.py                  # deterministic execution of the 6 chart recipes
 findings.py                # "what stands out": candidate generation + LLM phrasing
-test_profiler.py / test_chart_plan.py / test_charts.py / test_findings.py
+ui_helpers.py               # pure display logic app.py runs on (captions, states, suggestions)
+test_profiler.py / test_chart_plan.py / test_charts.py / test_findings.py / test_ui_helpers.py
 evals/
   eval_set.py             # the 12 Q&A questions + expected answers
   run_eval.py             # runs them against a live model, writes RESULTS.md
