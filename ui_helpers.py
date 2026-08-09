@@ -20,6 +20,7 @@ from chart_plan import (
     RECIPE_COUNT_BY_DIMENSION,
     RECIPE_CROSS_FILE_MEASURE,
     RECIPE_CROSSTAB,
+    RECIPE_HEADLINE_METRICS,
     RECIPE_MEASURE_BY_DIMENSION,
     RECIPE_MEASURE_OVER_TIME,
 )
@@ -86,6 +87,27 @@ def chart_caption(spec, chart_result) -> str:
         return f"{row} × {col} highest at {val:,.0f}"
 
     return ""
+
+
+def question_for_spec(spec) -> str | None:
+    """The plain-English question a chart card's 'ask about this' action
+    feeds into the Q&A engine — a restatement of what the chart already
+    shows, not a new claim. None for recipes with nothing sensible to ask
+    (headline_metrics is a set of numbers, not a single question)."""
+    if spec.recipe == RECIPE_COUNT_BY_DIMENSION:
+        return f"What is the count by {spec.dimension}?"
+    if spec.recipe == RECIPE_MEASURE_BY_DIMENSION:
+        return f"What is the {spec.agg} {spec.measure} by {spec.dimension}?"
+    if spec.recipe == RECIPE_MEASURE_OVER_TIME:
+        return f"Show the trend of {spec.measure} over time"
+    if spec.recipe == RECIPE_CROSSTAB:
+        return f"Show {spec.dimension} by {spec.dimension2}"
+    if spec.recipe == RECIPE_CROSS_FILE_MEASURE:
+        measure_part = f"{spec.agg} {spec.measure}" if spec.measure else "count"
+        return f"What is the {measure_part} by {spec.dimension}, joining {spec.frame} and {spec.frame2}?"
+    if spec.recipe == RECIPE_HEADLINE_METRICS:
+        return None
+    return None
 
 
 # ---------------------------------------------------------------------------

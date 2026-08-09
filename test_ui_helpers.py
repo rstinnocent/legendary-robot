@@ -9,6 +9,7 @@ from ui_helpers import (
     chart_caption,
     classify_answer_state,
     dataframe_to_csv_bytes,
+    question_for_spec,
     safe_download_filename,
     suggested_questions,
     type_chip,
@@ -90,6 +91,40 @@ def test_caption_empty_when_no_table():
     spec = ChartSpec(recipe="headline_metrics", title="t", metrics=[])
     result = ChartResult(title="t", metrics=[{"label": "x", "value": 1}])
     assert chart_caption(spec, result) == ""
+
+
+# ---------------------------------------------------------------------------
+# question_for_spec
+# ---------------------------------------------------------------------------
+
+def test_question_for_count_by_dimension():
+    spec = ChartSpec(recipe="count_by_dimension", title="t", frame="employees", dimension="department")
+    assert question_for_spec(spec) == "What is the count by department?"
+
+
+def test_question_for_measure_by_dimension():
+    spec = ChartSpec(recipe="measure_by_dimension", title="t", frame="employees",
+                      dimension="department", measure="annual_ctc", agg="mean")
+    assert question_for_spec(spec) == "What is the mean annual_ctc by department?"
+
+
+def test_question_for_cross_file_measure_with_measure():
+    spec = ChartSpec(recipe="cross_file_measure", title="t", frame="exits", frame2="employees",
+                      dimension="department", measure="annual_ctc", agg="mean")
+    q = question_for_spec(spec)
+    assert "annual_ctc" in q and "exits" in q and "employees" in q
+
+
+def test_question_for_cross_file_measure_without_measure():
+    spec = ChartSpec(recipe="cross_file_measure", title="t", frame="exits", frame2="employees",
+                      dimension="department", measure=None, agg="count")
+    q = question_for_spec(spec)
+    assert "count" in q
+
+
+def test_question_for_headline_metrics_is_none():
+    spec = ChartSpec(recipe="headline_metrics", title="t", metrics=[])
+    assert question_for_spec(spec) is None
 
 
 # ---------------------------------------------------------------------------
