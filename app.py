@@ -43,8 +43,8 @@ with st.sidebar:
     )
     st.divider()
     st.caption(
-        "Sample files in `sample_data/` (orders, customers, returns) — "
-        "try uploading all three for a cross-file demo."
+        "Sample files in `sample_data/` (employees, attendance, exits) — "
+        "upload all three for a cross-file demo."
     )
 
 # ------------------------------------------------------------ load data ---
@@ -102,7 +102,10 @@ if ask and question.strip():
 for q, res in st.session_state.history:
     st.markdown(f"**Q: {q}**")
     if res.error:
-        st.error(res.error)
+        # Wrapped in backticks: st.error renders markdown, so an error mentioning
+        # `__import__` would otherwise display as a bolded "import" and hide the
+        # actual name. Cost us a debugging session once already.
+        st.error(f"`{res.error}`")
     else:
         if res.figure is not None:
             st.pyplot(res.figure)

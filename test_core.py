@@ -31,6 +31,54 @@ def test_load_files_handles_name_collisions():
     assert len(frames) == 2  # both loaded, no overwrite
 
 
+def test_lazy_library_imports_are_not_blocked():
+    """Regression: `.strftime()` makes pandas import `time` internally.
+
+    With no `__import__` in the restricted namespace this failed with
+    `KeyError: '__import__'` — correct generated code killed by the sandbox.
+    """
+    frames = {"employees": pd.DataFrame({"joined": pd.to_datetime(["2026-01-05"])})}
+    res = run_generated_code("result = employees['joined'].dt.strftime('%Y-%m')[0]", frames)
+    assert res.error is None, res.error
+    assert res.result == "2026-01"
+
+
+@pytest.mark.parametrize("snippet", [
+    "import os",
+    "import os.path as p",
+    "from os import system",
+    "import socket",
+    "import subprocess",
+    "import shutil",
+    "import pickle",
+    "import importlib",
+])
+def test_dangerous_imports_are_blocked(snippet):
+    frames = {"df": pd.DataFrame({"a": [1]})}
+    res = run_generated_code(f"{snippet}\nresult = 1", frames)
+    assert res.error is not None, f"{snippet!r} was allowed through"
+
+
+@pytest.mark.parametrize("snippet", [
+    "import datetime",
+    "from datetime import date",
+    "import math",
+    "import re",
+    "from collections import Counter",
+])
+def test_harmless_imports_are_allowed(snippet):
+    frames = {"df": pd.DataFrame({"a": [1]})}
+    res = run_generated_code(f"{snippet}\nresult = 1", frames)
+    assert res.error is None, f"{snippet!r} was wrongly blocked: {res.error}"
+
+
+def test_syntactically_invalid_code_fails_cleanly():
+    frames = {"df": pd.DataFrame({"a": [1]})}
+    res = run_generated_code("result = = 5", frames)
+    assert res.error is not None
+    assert "not valid Python" in res.error
+
+
 def test_check_code_safety_blocks_dangerous_code():
     with pytest.raises(UnsafeCodeError):
         check_code_safety("import os\nos.system('ls')")

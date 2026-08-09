@@ -1,0 +1,10 @@
+exit_id,employee_id,exit_date,exit_type,reason
+1,1002,16-03-2026,Voluntary,Personal reasons
+2,1007,25-03-2026,Voluntary,Personal reasons
+3,1009,18-04-2026,Voluntary,Better opportunity
+4,1013,09-07-2026,Voluntary,Performance
+5,1014,19-06-2026,Involuntary,Personal reasons
+6,1017,03-02-2026,Voluntary,Personal reasons
+7,1028,11-05-2026,Voluntary,Performance
+8,1034,18-07-2026,Voluntary,Personal reasons
+9,1035,02-01-2026,Voluntary,Higher education

@@ -14,6 +14,7 @@ the user alongside every answer.
 
 from __future__ import annotations
 
+import ast
 import builtins
 import io
 import os
@@ -108,6 +109,10 @@ or any dunder attributes.
 # Restricted execution of LLM-generated code
 # ---------------------------------------------------------------------------
 
+# Compiled generated code is tagged with this filename so `_guarded_import` can
+# tell the model's code apart from library internals by inspecting the call stack.
+GENERATED_CODE_FILENAME = "<generated>"
+
 BLOCKED_PATTERNS = [
     r"\bimport\s+os\b", r"\bimport\s+sys\b", r"\bimport\s+subprocess\b",
     r"\bopen\s*\(", r"__\w+__", r"\beval\s*\(", r"\bexec\s*\(",
@@ -115,18 +120,90 @@ BLOCKED_PATTERNS = [
 ]
 
 _ALLOWED_BUILTIN_NAMES = [
-    "abs", "all", "any", "bool", "dict", "enumerate", "filter", "float",
-    "int", "len", "list", "map", "max", "min", "print", "range", "round",
-    "set", "sorted", "str", "sum", "tuple", "zip",
+    "abs", "all", "any", "bool", "dict", "divmod", "enumerate", "filter", "float",
+    "format", "int", "isinstance", "len", "list", "map", "max", "min", "print",
+    "range", "reversed", "round", "set", "slice", "sorted", "str", "sum", "tuple",
+    "zip", "True", "False", "None",
 ]
-SAFE_BUILTINS = {name: getattr(builtins, name) for name in _ALLOWED_BUILTIN_NAMES}
+
+# Modules the *generated code* is allowed to import for itself. Kept to things a
+# data-analysis snippet has a legitimate reason to want.
+ALLOWED_IMPORTS = {
+    "pandas", "numpy", "matplotlib", "math", "statistics", "datetime",
+    "dateutil", "calendar", "decimal", "fractions", "re", "json",
+    "itertools", "functools", "collections", "operator", "random", "textwrap",
+}
 
 
 class UnsafeCodeError(Exception):
     """Raised when LLM-generated code trips the (deliberately blunt) safety filter."""
 
 
+# Modules that are dangerous no matter who asks for them. Deliberately short:
+# every entry here is a capability the app has no business granting (filesystem,
+# process control, network, deserialisation, or a route back to raw builtins).
+DENIED_IMPORTS = {
+    "os", "sys", "subprocess", "socket", "ssl", "shutil", "ctypes", "importlib",
+    "pickle", "marshal", "urllib", "http", "requests", "ftplib", "smtplib",
+    "pty", "tty", "webbrowser", "runpy", "builtins", "multiprocessing", "signal",
+}
+
+
+def _guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+    """A stand-in for __import__ that blocks a small set of dangerous modules.
+
+    Why this exists at all, rather than simply omitting __import__: pandas and
+    matplotlib import modules lazily *inside* ordinary calls — `.strftime()`
+    reaches for `time` — so a namespace with no `__import__` makes perfectly
+    correct generated code die with `KeyError: '__import__'`. That is a sandbox
+    bug masquerading as a model failure, and only a real question surfaced it.
+
+    Note this cannot reliably tell library internals apart from generated code:
+    when the lazy import happens inside a C-level call there is no intervening
+    Python frame to inspect. So this layer is a blunt denylist, and the precise
+    check on what the model actually wrote lives in `check_code_safety`, which
+    parses the code's AST before anything runs.
+    """
+    if name.split(".")[0] in DENIED_IMPORTS:
+        raise UnsafeCodeError(f"Import of '{name}' is not allowed.")
+    return builtins.__import__(name, globals, locals, fromlist, level)
+
+
+SAFE_BUILTINS = {name: getattr(builtins, name) for name in _ALLOWED_BUILTIN_NAMES
+                 if hasattr(builtins, name)}
+SAFE_BUILTINS["__import__"] = _guarded_import
+
+
 def check_code_safety(code: str) -> None:
+    """Static checks run before a single line of generated code executes.
+
+    Two layers, because they catch different things:
+
+    1. An AST pass over the model's own `import` statements, enforced against
+       ALLOWED_IMPORTS. Parsing beats pattern-matching here — `import os` and
+       `import os.path as p` and `from os import system` are all one rule,
+       and there is no comment or string literal to false-positive on.
+    2. The textual blocklist, which still covers non-import escape routes
+       (dunder access, eval/exec, file I/O) and is cheap to keep.
+    """
+    try:
+        tree = ast.parse(code)
+    except SyntaxError as exc:
+        raise UnsafeCodeError(f"Generated code is not valid Python: {exc}") from exc
+
+    for node in ast.walk(tree):
+        names: list[str] = []
+        if isinstance(node, ast.Import):
+            names = [alias.name for alias in node.names]
+        elif isinstance(node, ast.ImportFrom):
+            names = [node.module or ""]
+        for name in names:
+            root = name.split(".")[0]
+            if root and root not in ALLOWED_IMPORTS:
+                raise UnsafeCodeError(
+                    f"Generated code tried to import '{name}', which is not on the allowlist."
+                )
+
     for pattern in BLOCKED_PATTERNS:
         if re.search(pattern, code):
             raise UnsafeCodeError(f"Generated code contains a disallowed pattern: {pattern}")
@@ -159,7 +236,10 @@ def run_generated_code(code: str, frames: dict[str, pd.DataFrame]) -> ExecutionR
     global_ns = {"pd": pd, "np": np, "plt": plt, "__builtins__": SAFE_BUILTINS}
 
     try:
-        exec(code, global_ns, local_ns)  # noqa: S102 — restricted namespace above
+        compiled = compile(code, GENERATED_CODE_FILENAME, "exec")
+        exec(compiled, global_ns, local_ns)  # noqa: S102 — restricted namespace above
+    except UnsafeCodeError as exc:
+        return ExecutionResult(code=code, error=str(exc))
     except Exception as exc:  # noqa: BLE001 — surface any runtime error to the UI
         return ExecutionResult(code=code, error=f"{type(exc).__name__}: {exc}")
 

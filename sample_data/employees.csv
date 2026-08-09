@@ -1,0 +1,41 @@
+employee_id,name,department,grade,location,manager_id,date_of_joining,annual_ctc,gender
+1001,Aarav Rao,Sales,G2,Bengaluru,,2024-12-20,786000,Female
+1002,Meera Banerjee,Engineering,G2,Bengaluru,,2022-04-16,701000,Male
+1003,Rohan Iyer,Sales,G2,Bengaluru,,2021-03-02,767000,Female
+1004,Priya Kulkarni,Marketing,G5,Bengaluru,,2021-08-10,3301000,Male
+1005,Kabir Mehta,Sales,G1,Hyderabad,,2021-05-24,461000,Male
+1006,Ananya Gupta,People Ops,G2,Hyderabad,1001,2023-04-01,771000,Female
+1007,Vikram Joshi,People Ops,G2,Bengaluru,1005,2026-07-03,672000,Female
+1008,Sneha Saxena,People Ops,G2,Remote,1005,2026-08-04,811000,Male
+1009,Arjun Nair,Sales,G2,Hyderabad,1001,2025-09-17,695000,Male
+1010,Divya Verma,Customer Success,G2,Bengaluru,1001,2024-02-28,747000,Male
+1011,Nikhil Kaur,Customer Success,G1,Remote,1001,2026-07-15,505000,Female
+1012,Isha Reddy,People Ops,G3,Mumbai,1003,2026-05-17,1329000,Male
+1013,Karthik Pillai,People Ops,G3,Bengaluru,1003,2021-02-04,1198000,Male
+1014,Ritu Ghosh,Engineering,G3,Mumbai,1005,2021-06-20,1284000,Male
+1015,Sameer Menon,Finance,G1,Remote,1003,2025-04-19,436000,Female
+1016,Tara Chopra,Finance,G3,Mumbai,1002,2024-02-03,1124000,Female
+1017,Aditya Patel,Finance,G2,Remote,1005,2026-07-16,692000,Male
+1018,Neha Bose,Finance,G4,Remote,1003,2022-08-15,1809000,Male
+1019,Rahul Desai,Sales,G5,Hyderabad,1002,2026-08-09,2962000,Female
+1020,Pooja Shah,People Ops,G2,Bengaluru,1002,2025-09-30,711000,Male
+1021,Manish Rao,People Ops,G2,Hyderabad,1005,2022-08-19,722000,Female
+1022,Kavya Banerjee,Marketing,G2,Remote,1004,2026-07-22,769000,Male
+1023,Siddharth Iyer,Marketing,G1,Bengaluru,1002,2026-07-01,403000,Male
+1024,Anjali Kulkarni,Customer Success,G1,Bengaluru,1005,2026-08-05,402000,Female
+1025,Varun Mehta,Customer Success,G2,Hyderabad,1005,2024-09-03,664000,Male
+1026,Shreya Gupta,Customer Success,G1,Remote,1001,2021-08-09,466000,Female
+1027,Harsh Joshi,Finance,G4,Bengaluru,1002,2022-07-24,1911000,Female
+1028,Lakshmi Saxena,Marketing,G3,Hyderabad,1005,2022-06-05,1205000,Female
+1029,Aman Nair,People Ops,G1,Bengaluru,1005,2022-03-06,413000,Male
+1030,Nisha Verma,Engineering,G5,Mumbai,1002,2021-01-02,3519000,Male
+1031,Deepak Kaur,People Ops,G3,Mumbai,1002,2023-03-03,1299000,Female
+1032,Swati Reddy,Finance,G4,Hyderabad,1005,2023-11-17,2068000,Male
+1033,Rajat Pillai,Engineering,G2,Remote,1003,2025-10-02,814000,Female
+1034,Preeti Ghosh,Customer Success,G3,Mumbai,1003,2023-04-14,1308000,Female
+1035,Gaurav Menon,Sales,G1,Hyderabad,1004,2025-04-02,419000,Female
+1036,Ayesha Chopra,Marketing,G2,Bengaluru,1001,2022-03-14,815000,Male
+1037,Vivek Patel,Sales,G3,Remote,1003,2022-10-08,1333000,Female
+1038,Sunita Bose,Marketing,G4,Bengaluru,1002,2026-03-24,1900000,Female
+1039,Akash Desai,Engineering,G5,Remote,1002,2021-05-17,3307000,Male
+1040,Ritika Shah,Customer Success,G3,Hyderabad,1001,2024-11-03,1227000,Female
