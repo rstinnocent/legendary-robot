@@ -267,7 +267,11 @@ else:
     st.markdown('<a name="charts"></a>', unsafe_allow_html=True)
     if chart_items:
         hero_spec, hero_result = chart_items[0]
-        with st.container(border=True):
+        # Constrained to ~2/3 width rather than the full page: st.pyplot
+        # preserves the figure's own aspect ratio when stretched, so a
+        # full-width container blows the height up proportionally too.
+        hero_col, _ = st.columns([2, 1])
+        with hero_col, st.container(border=True):
             st.markdown(f"**{hero_spec.title}**")
             if hero_result.error:
                 st.warning(hero_result.error)
@@ -278,7 +282,7 @@ else:
             caption = chart_caption(hero_spec, hero_result)
             if caption:
                 st.markdown(f'<div class="in-caption">{html.escape(caption)}</div>', unsafe_allow_html=True)
-            act1, act2, _ = st.columns([1, 1, 4])
+            act1, act2 = st.columns(2)
             with act1:
                 with st.popover("view recipe"):
                     st.code(f"{hero_spec.recipe}({hero_spec.__dict__})", language="python")
