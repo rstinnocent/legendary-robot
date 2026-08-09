@@ -1,5 +1,5 @@
 """
-app.py — Streamlit UI for Insight (the AI-powered data Q&A app).
+app.py — Streamlit UI for Crosswalk (the AI-powered cross-file data Q&A app).
 
 Structure follows the converged wireframe set (turn 3 of the "Wireframe
 screens scoping" design canvas): empty state -> files loaded -> overview
@@ -37,7 +37,7 @@ from ui_helpers import (
 
 SAMPLE_DIR = Path(__file__).resolve().parent / "sample_data"
 
-st.set_page_config(page_title="Insight", page_icon="✎", layout="wide")
+st.set_page_config(page_title="Crosswalk", page_icon="✎", layout="wide")
 
 st.markdown(
     """
@@ -92,7 +92,7 @@ def _ingest_files(file_bytes: dict[str, bytes]) -> None:
 
 def _header(tag: str) -> None:
     st.markdown(
-        f'<div class="in-hdr"><div class="in-logo">✎ Insight</div>'
+        f'<div class="in-hdr"><div class="in-logo">✎ Crosswalk</div>'
         f'<div class="in-tag">{html.escape(tag)}</div></div>',
         unsafe_allow_html=True,
     )
@@ -144,7 +144,6 @@ with st.sidebar:
 
     st.divider()
 
-    analyze_clicked = False
     if st.session_state.frames:
         frames_now = st.session_state.frames
         st.subheader(f"Files ({len(frames_now)})")
@@ -154,7 +153,6 @@ with st.sidebar:
             "Add more files", type=["csv", "xlsx", "xls"], accept_multiple_files=True, key="uploader"
         )
         _ingest_files({f.name: f.getvalue() for f in uploaded} if uploaded else {})
-        analyze_clicked = st.button("Analyze", type="primary", width="stretch")
     else:
         uploaded = None
 
@@ -189,6 +187,10 @@ _header(f"{len(frames)} files · {total_rows:,} rows")
 
 profiles = profile_frames(frames)
 join_keys = detect_join_keys(frames, profiles)
+
+_, mid, _ = st.columns([1, 1, 1])
+with mid:
+    analyze_clicked = st.button("Analyze", type="primary", width="stretch")
 
 if analyze_clicked:
     try:
@@ -237,7 +239,7 @@ if not analysis:
         )
     if not join_keys:
         st.caption("No shared identifiers detected across files yet.")
-    st.caption("Click **Analyze** in the sidebar for an overview.")
+    st.caption("Click **Analyze** above for an overview.")
 
 # ------------------------------------------------------------ 3c: overview
 else:

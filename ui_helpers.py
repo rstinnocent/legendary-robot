@@ -1,5 +1,5 @@
 """
-ui_helpers.py — pure display-logic helpers for the Insight UI (app.py).
+ui_helpers.py — pure display-logic helpers for the Crosswalk UI (app.py).
 
 Kept separate from app.py, and from Streamlit, on purpose: every function
 here is plain Python over the existing engine's output types (ColumnProfile,
