@@ -5,14 +5,16 @@ import pytest
 from chart_plan import ChartSpec
 from charts import ChartResult
 from core import ExecutionResult
-from profiler import detect_join_keys, profile_frames
+from profiler import JoinKey, detect_join_keys, profile_frames
 from ui_helpers import (
     chart_caption,
     chart_section_label,
     classify_answer_state,
     dataframe_to_csv_bytes,
+    describe_join,
     format_metric_value,
     pluralize,
+    prettify_column_name,
     question_for_spec,
     safe_download_filename,
     suggested_questions,
@@ -158,37 +160,103 @@ def test_caption_empty_when_no_table():
 
 
 # ---------------------------------------------------------------------------
-# question_for_spec
+# question_for_spec — phrased for a business user, not a database query
 # ---------------------------------------------------------------------------
 
 def test_question_for_count_by_dimension():
     spec = ChartSpec(recipe="count_by_dimension", title="t", frame="employees", dimension="department")
-    assert question_for_spec(spec) == "What is the count by department?"
+    assert question_for_spec(spec) == "What's the breakdown by Department?"
 
 
-def test_question_for_measure_by_dimension():
+def test_question_for_measure_by_dimension_prettifies_and_uses_average():
     spec = ChartSpec(recipe="measure_by_dimension", title="t", frame="employees",
                       dimension="department", measure="annual_ctc", agg="mean")
-    assert question_for_spec(spec) == "What is the mean annual_ctc by department?"
+    assert question_for_spec(spec) == "What's the average Annual CTC by Department?"
 
 
-def test_question_for_cross_file_measure_with_measure():
+def test_question_for_measure_by_dimension_sum_says_total():
+    spec = ChartSpec(recipe="measure_by_dimension", title="t", frame="employees",
+                      dimension="department", measure="annual_ctc", agg="sum")
+    assert question_for_spec(spec) == "What's the total Annual CTC by Department?"
+
+
+def test_question_for_measure_over_time():
+    spec = ChartSpec(recipe="measure_over_time", title="t", frame="attendance",
+                      date_col="month", measure="leave_days", agg="sum")
+    assert question_for_spec(spec) == "How has Leave Days changed over time?"
+
+
+def test_question_for_crosstab():
+    spec = ChartSpec(recipe="crosstab", title="t", frame="employees",
+                      dimension="department", dimension2="grade")
+    assert question_for_spec(spec) == "How does Department break down by Grade?"
+
+
+def test_question_for_cross_file_measure_with_measure_says_combining_not_joining():
     spec = ChartSpec(recipe="cross_file_measure", title="t", frame="exits", frame2="employees",
                       dimension="department", measure="annual_ctc", agg="mean")
     q = question_for_spec(spec)
-    assert "annual_ctc" in q and "exits" in q and "employees" in q
+    assert "Annual CTC" in q and "Exits" in q and "Employees" in q
+    assert "combining" in q
+    assert "joining" not in q
 
 
 def test_question_for_cross_file_measure_without_measure():
     spec = ChartSpec(recipe="cross_file_measure", title="t", frame="exits", frame2="employees",
                       dimension="department", measure=None, agg="count")
     q = question_for_spec(spec)
-    assert "count" in q
+    assert "number of matching records" in q
 
 
 def test_question_for_headline_metrics_is_none():
     spec = ChartSpec(recipe="headline_metrics", title="t", metrics=[])
     assert question_for_spec(spec) is None
+
+
+# ---------------------------------------------------------------------------
+# prettify_column_name
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("raw,expected", [
+    ("annual_ctc", "Annual CTC"),
+    ("employee_id", "Employee ID"),
+    ("date_of_joining", "Date of Joining"),
+    ("department", "Department"),
+    ("working_days", "Working Days"),
+    ("wfh_days", "WFH Days"),
+    ("", ""),
+])
+def test_prettify_column_name(raw, expected):
+    assert prettify_column_name(raw) == expected
+
+
+# ---------------------------------------------------------------------------
+# describe_join
+# ---------------------------------------------------------------------------
+
+def test_describe_join_same_column_name():
+    jk = JoinKey(left_frame="attendance", left_column="employee_id",
+                 right_frame="employees", right_column="employee_id",
+                 overlap_count=40, overlap_ratio=1.0)
+    assert describe_join(jk) == (
+        "Attendance and Employees can be linked by Employee ID (40 matching records)"
+    )
+
+
+def test_describe_join_different_column_names():
+    jk = JoinKey(left_frame="orders", left_column="cust_id",
+                 right_frame="customers", right_column="id",
+                 overlap_count=5, overlap_ratio=1.0)
+    desc = describe_join(jk)
+    assert "Cust ID" in desc and "ID" in desc
+    assert "5 matching records" in desc
+
+
+def test_describe_join_singular_match_count():
+    jk = JoinKey(left_frame="a", left_column="k", right_frame="b", right_column="k",
+                 overlap_count=1, overlap_ratio=1.0)
+    assert "1 matching record" in describe_join(jk)
+    assert "1 matching records" not in describe_join(jk)
 
 
 # ---------------------------------------------------------------------------

@@ -44,6 +44,39 @@ def type_chip(role: str) -> str:
     return _ROLE_CHIP.get(role, "text")
 
 
+# A handful of business/HR terms that should stay uppercase rather than get
+# title-cased ("Annual Ctc" is wrong, "Annual CTC" is right); everything not
+# in this list gets ordinary title-casing instead of a guess.
+_ACRONYMS = {"ctc", "id", "hr", "wfh", "roi", "kpi", "yoy", "mom", "qoq", "ytd", "hris"}
+_MINOR_WORDS = {"of", "the", "and", "by", "in", "on", "at", "to", "for", "vs"}
+
+
+def prettify_column_name(name: str) -> str:
+    """'annual_ctc' -> 'Annual CTC', 'date_of_joining' -> 'Date of Joining'.
+
+    Column names are real identifiers (snake_case, sometimes abbreviated)
+    everywhere they're used to actually query the data — but everywhere
+    they're shown to a business user in a sentence (a suggested question, a
+    join-key explanation), the raw identifier reads like a database field,
+    not a question a person would ask. This never touches what's sent to
+    the Q&A engine, only what's displayed: the model gets the real schema
+    regardless of how the question is worded.
+    """
+    words = name.replace("_", " ").split()
+    if not words:
+        return name
+    pretty = []
+    for i, word in enumerate(words):
+        low = word.lower()
+        if low in _ACRONYMS:
+            pretty.append(low.upper())
+        elif i > 0 and low in _MINOR_WORDS:
+            pretty.append(low)
+        else:
+            pretty.append(word.capitalize())
+    return " ".join(pretty)
+
+
 def format_metric_value(value) -> str:
     """Comma-format a headline-metric value if it's numeric, else str() it.
 
@@ -109,25 +142,48 @@ def chart_caption(spec, chart_result) -> str:
     return ""
 
 
+def _agg_word(agg: str) -> str:
+    return {"mean": "average", "sum": "total", "count": "number of"}.get(agg, agg)
+
+
 def question_for_spec(spec) -> str | None:
     """The plain-English question a chart card's 'ask about this' action
     feeds into the Q&A engine — a restatement of what the chart already
-    shows, not a new claim. None for recipes with nothing sensible to ask
-    (headline_metrics is a set of numbers, not a single question)."""
+    shows, not a new claim, phrased the way a business user would actually
+    ask it rather than as a database query. None for recipes with nothing
+    sensible to ask (headline_metrics is a set of numbers, not a single
+    question)."""
     if spec.recipe == RECIPE_COUNT_BY_DIMENSION:
-        return f"What is the count by {spec.dimension}?"
+        return f"What's the breakdown by {prettify_column_name(spec.dimension)}?"
     if spec.recipe == RECIPE_MEASURE_BY_DIMENSION:
-        return f"What is the {spec.agg} {spec.measure} by {spec.dimension}?"
+        return (f"What's the {_agg_word(spec.agg)} {prettify_column_name(spec.measure)} "
+                f"by {prettify_column_name(spec.dimension)}?")
     if spec.recipe == RECIPE_MEASURE_OVER_TIME:
-        return f"Show the trend of {spec.measure} over time"
+        return f"How has {prettify_column_name(spec.measure)} changed over time?"
     if spec.recipe == RECIPE_CROSSTAB:
-        return f"Show {spec.dimension} by {spec.dimension2}"
+        return f"How does {prettify_column_name(spec.dimension)} break down by {prettify_column_name(spec.dimension2)}?"
     if spec.recipe == RECIPE_CROSS_FILE_MEASURE:
-        measure_part = f"{spec.agg} {spec.measure}" if spec.measure else "count"
-        return f"What is the {measure_part} by {spec.dimension}, joining {spec.frame} and {spec.frame2}?"
+        measure_part = (f"{_agg_word(spec.agg)} {prettify_column_name(spec.measure)}"
+                         if spec.measure else "number of matching records")
+        return (f"What's the {measure_part} by {prettify_column_name(spec.dimension)}, "
+                f"combining {prettify_column_name(spec.frame)} and {prettify_column_name(spec.frame2)}?")
     if spec.recipe == RECIPE_HEADLINE_METRICS:
         return None
     return None
+
+
+def describe_join(jk) -> str:
+    """'Attendance and Employees can be linked by Employee ID (40 matching
+    records)' instead of the raw 'attendance.employee_id ->
+    employees.employee_id' — a business user reads file/column names, not
+    dot notation."""
+    left = prettify_column_name(jk.left_frame)
+    right = prettify_column_name(jk.right_frame)
+    if jk.left_column == jk.right_column:
+        key_desc = prettify_column_name(jk.left_column)
+    else:
+        key_desc = f"{prettify_column_name(jk.left_column)} / {prettify_column_name(jk.right_column)}"
+    return f"{left} and {right} can be linked by {key_desc} ({pluralize(jk.overlap_count, 'matching record')})"
 
 
 def chart_section_label(titles: list[str], max_named: int = 2) -> str:
@@ -180,38 +236,43 @@ def suggested_questions(
 ) -> list[str]:
     """A handful of questions the uploaded data can actually answer, built
     from column roles rather than invented — every suggestion references a
-    real dimension/measure/date that exists in the data.
+    real dimension/measure/date that exists in the data, phrased the way a
+    business user would ask it rather than as a database query (no raw
+    column names, no "join").
 
-    A cross-file join question is generated first, ahead of single-file
-    ones: cross-file analysis is the app's differentiator, so with only
+    A cross-file question is generated first, ahead of single-file ones:
+    cross-file analysis is the app's differentiator, so with only
     `max_suggestions` slots it shouldn't be the one that gets truncated.
     """
     suggestions: list[str] = []
 
     if join_keys:
         jk = join_keys[0]
-        suggestions.append(
-            f"How many {jk.left_frame} rows match {jk.right_frame} on {jk.left_column}?"
-        )
+        left = prettify_column_name(jk.left_frame)
+        right = prettify_column_name(jk.right_frame)
+        suggestions.append(f"How many {left} records have a matching entry in {right}?")
 
     for profile in profiles.values():
         dims = profile.columns_with_role(ROLE_DIMENSION)
         measures = profile.columns_with_role(ROLE_MEASURE)
         if dims and measures:
-            suggestions.append(f"What is the average {measures[0]} by {dims[0]}?")
+            suggestions.append(
+                f"What's the average {prettify_column_name(measures[0])} "
+                f"by {prettify_column_name(dims[0])}?"
+            )
             break
 
     for profile in profiles.values():
         dims = profile.columns_with_role(ROLE_DIMENSION)
         if dims:
-            suggestions.append(f"What is the count by {dims[0]}?")
+            suggestions.append(f"What's the breakdown by {prettify_column_name(dims[0])}?")
             break
 
     for profile in profiles.values():
         dates = profile.columns_with_role(ROLE_DATE)
         measures = profile.columns_with_role(ROLE_MEASURE)
         if dates and measures:
-            suggestions.append(f"Show the trend of {measures[0]} by {dates[0]}")
+            suggestions.append(f"How has {prettify_column_name(measures[0])} changed over time?")
             break
 
     # de-dupe while preserving order (small profiles can produce repeats)

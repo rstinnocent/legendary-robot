@@ -30,6 +30,7 @@ from ui_helpers import (
     chart_section_label,
     classify_answer_state,
     dataframe_to_csv_bytes,
+    describe_join,
     format_metric_value,
     pluralize,
     question_for_spec,
@@ -37,6 +38,8 @@ from ui_helpers import (
     suggested_questions,
     type_chip,
 )
+
+APP_TAGLINE = "Ask questions about your data in plain English — Crosswalk automatically connects the dots across multiple files."
 
 SAMPLE_DIR = Path(__file__).resolve().parent / "sample_data"
 
@@ -48,8 +51,9 @@ st.markdown(
 .in-hdr{display:flex;justify-content:space-between;align-items:center;
   border-bottom:2px solid #1a1a1a;padding-bottom:10px;margin-bottom:18px}
 .in-logo{font-size:22px;font-weight:700}
+.in-subtitle{font-size:13px;font-weight:400;color:rgba(0,0,0,.55);margin-top:2px}
 .in-tag{font-size:12px;color:rgba(0,0,0,.55);border:1px dashed rgba(0,0,0,.4);
-  padding:3px 9px;border-radius:10px}
+  padding:3px 9px;border-radius:10px;white-space:nowrap;margin-left:12px}
 .in-join{font-size:12.5px;color:#1F4E79;border:1px dashed #1F4E79;
   padding:6px 9px;margin:6px 0;border-radius:4px}
 .in-caption{font-size:12px;color:rgba(0,0,0,.55);margin-top:4px}
@@ -124,7 +128,9 @@ def _remove_file(name: str) -> None:
 
 def _header(tag: str) -> None:
     st.markdown(
-        f'<div class="in-hdr"><div class="in-logo">✎ Crosswalk</div>'
+        '<div class="in-hdr">'
+        '<div><div class="in-logo">✎ Crosswalk</div>'
+        f'<div class="in-subtitle">{html.escape(APP_TAGLINE)}</div></div>'
         f'<div class="in-tag">{html.escape(tag)}</div></div>',
         unsafe_allow_html=True,
     )
@@ -135,13 +141,13 @@ def _ask(question: str, frames: dict) -> None:
     try:
         backend = _build_backend()
     except Exception as exc:
-        st.error(f"Couldn't set up the LLM backend: {exc}")
+        st.error(f"Couldn't connect to the AI provider: {exc}")
         return
     with st.spinner("Thinking..."):
         try:
             result = answer_question(question, frames, backend)
         except Exception as exc:  # network / API errors from the backend itself
-            st.error(f"The LLM backend call failed: {exc}")
+            st.error(f"The AI provider call failed: {exc}")
             return
     st.session_state.qa_history.insert(0, {"question": question, "result": result, "pinned": False})
 
@@ -157,7 +163,10 @@ for key, default in [
 # -------------------------------------------------------------- sidebar ---
 with st.sidebar:
     st.header("Settings")
-    backend_choice = st.selectbox("LLM backend", ["Groq (free, hosted)", "Ollama (local)"])
+    backend_choice = st.selectbox(
+        "AI provider", ["Groq (free, hosted)", "Ollama (local)"],
+        help="Powers the plain-English Q&A below. Both options are free and require no paid account.",
+    )
     st.session_state.backend_choice = backend_choice
 
     if backend_choice.startswith("Groq"):
@@ -167,7 +176,8 @@ with st.sidebar:
             help="Free, no credit card required — get one at console.groq.com/keys",
         )
         st.session_state.model = st.selectbox(
-            "Model", ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "openai/gpt-oss-120b"],
+            "AI model", ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "openai/gpt-oss-120b"],
+            help="llama-3.3-70b-versatile is the most accurate; llama-3.1-8b-instant is faster.",
         )
     else:
         st.session_state.api_key = None
@@ -229,23 +239,27 @@ join_keys = detect_join_keys(frames, profiles)
 
 _, mid, _ = st.columns([1, 1, 1])
 with mid:
-    analyze_clicked = st.button("Analyze", type="primary", width="stretch")
+    analyze_clicked = st.button(
+        "Analyze", type="primary", width="stretch",
+        help="Get an instant summary: key numbers, charts, and what stands out in your data.",
+    )
 
 if analyze_clicked:
     try:
         backend = _build_backend()
     except Exception as exc:
-        st.error(f"Couldn't set up the LLM backend: {exc}")
+        st.error(f"Couldn't connect to the AI provider: {exc}")
         st.stop()
 
-    with st.spinner("Profiling data and building the overview..."):
+    with st.spinner("Analyzing your data and building the overview..."):
         try:
             raw_plan = generate_chart_plan(profiles, join_keys, backend)
         except ChartPlanError as exc:
-            st.error(f"The model's chart plan couldn't be parsed: {exc}")
+            st.error(f"Couldn't build an overview from the AI's response — try clicking "
+                      f"Analyze again. ({exc})")
             st.stop()
         except Exception as exc:
-            st.error(f"The LLM backend call failed: {exc}")
+            st.error(f"The AI provider call failed: {exc}")
             st.stop()
 
         validated = validate_plan(raw_plan, profiles, join_keys)
@@ -262,6 +276,7 @@ analysis = st.session_state.analysis
 
 # ---------------------------------------------------- 3b: schema preview --
 if not analysis:
+    st.caption("Here's what we found in your files:")
     for name, profile in profiles.items():
         st.markdown(f"**{name}**")
         schema_df = pd.DataFrame(
@@ -271,14 +286,13 @@ if not analysis:
         st.dataframe(schema_df, hide_index=True)
     for jk in join_keys:
         st.markdown(
-            f'<div class="in-join">🔗 {html.escape(jk.left_frame)}.{html.escape(jk.left_column)} '
-            f"→ {html.escape(jk.right_frame)}.{html.escape(jk.right_column)} "
-            f"({jk.overlap_count} shared values)</div>",
+            f'<div class="in-join">🔗 {html.escape(describe_join(jk))}</div>',
             unsafe_allow_html=True,
         )
     if not join_keys:
-        st.caption("No shared identifiers detected across files yet.")
-    st.caption("Click **Analyze** above for an overview.")
+        st.caption("We didn't find a common column to link these files on yet — "
+                    "you can still ask questions about each one individually.")
+    st.caption("Ready when you are — click **Analyze** above for an instant overview.")
 
 # ------------------------------------------------------------ 3c: overview
 else:
@@ -322,11 +336,13 @@ else:
                 if caption:
                     st.markdown(f'<div class="in-caption">{html.escape(caption)}</div>', unsafe_allow_html=True)
                 act1, act2 = st.columns(2)
+                q = question_for_spec(hero_spec)
                 with act1:
-                    with st.popover("view recipe"):
+                    with st.popover("view details"):
+                        if q:
+                            st.caption(f"This chart answers: *{q}*")
                         st.code(f"{hero_spec.recipe}({hero_spec.__dict__})", language="python")
                 with act2:
-                    q = question_for_spec(hero_spec)
                     if q and st.button("ask about this", key="ask_hero"):
                         st.session_state.pending_question = q
                         st.rerun()
@@ -353,11 +369,13 @@ else:
                                 st.markdown(f'<div class="in-caption">{html.escape(caption)}</div>',
                                             unsafe_allow_html=True)
                             b1, b2 = st.columns(2)
+                            q = question_for_spec(spec)
                             with b1:
-                                with st.popover("recipe", key=f"recipe_{idx}"):
+                                with st.popover("details", key=f"recipe_{idx}"):
+                                    if q:
+                                        st.caption(f"This chart answers: *{q}*")
                                     st.code(f"{spec.recipe}({spec.__dict__})", language="python")
                             with b2:
-                                q = question_for_spec(spec)
                                 if q and st.button("ask", key=f"ask_{idx}"):
                                     st.session_state.pending_question = q
                                     st.rerun()
@@ -366,6 +384,8 @@ st.divider()
 
 # ------------------------------------------------------------------ Q&A ---
 st.subheader("Ask a question")
+st.caption("Type a question below in plain English — Crosswalk writes and runs the "
+           "analysis for you, and always shows its work so you can check it.")
 
 pending = st.session_state.pending_question
 if pending:
@@ -398,9 +418,10 @@ for i, entry in enumerate(history_sorted):
                         unsafe_allow_html=True)
 
         if state == "error":
-            st.error("⚠ Something went wrong running this query")
-            st.code(result.error, language="text")
-            with st.expander("View generated code"):
+            st.error("Something went wrong while answering that — the analysis "
+                      "hit an unexpected snag. Try rephrasing the question, or retry as-is.")
+            with st.expander("Technical details"):
+                st.code(result.error, language="text")
                 st.code(result.code, language="python")
             if st.button("Retry", key=f"retry_{i}_{question}"):
                 st.session_state.pending_question = question
@@ -410,6 +431,7 @@ for i, entry in enumerate(history_sorted):
             st.info(result.result)
             suggestions_here = suggested_questions(profiles, join_keys)
             if suggestions_here:
+                st.caption("Try one of these instead:")
                 chip_cols = st.columns(len(suggestions_here))
                 for chip_col, sugg in zip(chip_cols, suggestions_here):
                     if chip_col.button(sugg, key=f"calmsugg_{i}_{sugg}"):
