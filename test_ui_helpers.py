@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -10,6 +11,7 @@ from ui_helpers import (
     chart_section_label,
     classify_answer_state,
     dataframe_to_csv_bytes,
+    format_metric_value,
     question_for_spec,
     safe_download_filename,
     suggested_questions,
@@ -31,6 +33,37 @@ from ui_helpers import (
 ])
 def test_type_chip(role, expected):
     assert type_chip(role) == expected
+
+
+# ---------------------------------------------------------------------------
+# format_metric_value
+# ---------------------------------------------------------------------------
+
+def test_format_metric_value_plain_int():
+    assert format_metric_value(4672000) == "4,672,000"
+
+
+def test_format_metric_value_plain_float():
+    assert format_metric_value(1168150.0) == "1,168,150"
+
+
+def test_format_metric_value_numpy_int64_gets_comma_formatted():
+    """Regression: a headline metric backed by an int64 column (e.g. sum()
+    of annual_ctc) is numpy.int64, which is NOT a Python int — the original
+    isinstance(value, (int, float)) check silently fell through to str(),
+    rendering totals without thousands separators."""
+    total = pd.Series([700000, 800000, 1900000], dtype="int64").sum()
+    assert isinstance(total, np.int64)
+    assert format_metric_value(total) == "3,400,000"
+
+
+def test_format_metric_value_numpy_float64():
+    mean = pd.Series([700000, 800000, 1900000], dtype="int64").mean()
+    assert format_metric_value(mean) == f"{mean:,.0f}"
+
+
+def test_format_metric_value_non_numeric_passthrough():
+    assert format_metric_value("Engineering") == "Engineering"
 
 
 # ---------------------------------------------------------------------------

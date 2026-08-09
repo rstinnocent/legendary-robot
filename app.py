@@ -30,6 +30,7 @@ from ui_helpers import (
     chart_section_label,
     classify_answer_state,
     dataframe_to_csv_bytes,
+    format_metric_value,
     question_for_spec,
     safe_download_filename,
     suggested_questions,
@@ -73,22 +74,40 @@ def _build_backend():
 
 
 def _ingest_files(file_bytes: dict[str, bytes]) -> None:
-    """Reload frames only when the uploaded *set* actually changed — a
-    Streamlit rerun fires on every widget interaction, and reloading
-    unconditionally here would wipe the overview and Q&A history the
-    instant the user touched anything else on the page."""
+    """Merge newly-provided files into the existing dataset rather than
+    replacing it outright. Files arrive from three different places — the
+    empty-state drop zone, "try sample data", and "Add more files" in the
+    sidebar — each its own widget/call with no knowledge of files loaded
+    through the others; replacing st.session_state.frames wholesale here
+    (the original approach) silently dropped everything already loaded the
+    moment someone used "Add more files" to add a fourth file to three
+    already-loaded ones.
+
+    Also only reload when `file_bytes` actually contains a new filename: a
+    Streamlit rerun fires on every widget interaction, and the sidebar
+    uploader keeps reporting the same files on every one of them — without
+    this guard, every rerun (asking a question, anything) would look like a
+    fresh upload and wipe the overview and Q&A history.
+
+    Known limitation: re-uploading a *different* file under a name already
+    seen (e.g. a corrected employees.csv) is treated as nothing new and
+    silently ignored, rather than replacing the earlier version — good
+    enough for "add more files", not a general re-upload/replace feature.
+    """
     if not file_bytes:
         return
-    signature = tuple(sorted(file_bytes.keys()))
-    if signature == st.session_state.get("_frames_signature"):
+    already_ingested = st.session_state.get("_ingested_filenames", set())
+    if set(file_bytes.keys()) <= already_ingested:
         return
     try:
-        st.session_state.frames = load_files(file_bytes)
-        st.session_state._frames_signature = signature
-        st.session_state.analysis = None
-        st.session_state.qa_history = []
+        new_frames = load_files(file_bytes)
     except Exception as exc:
         st.error(f"Couldn't read one of the files: {exc}")
+        return
+    st.session_state.frames = {**st.session_state.get("frames", {}), **new_frames}
+    st.session_state._ingested_filenames = already_ingested | set(file_bytes.keys())
+    st.session_state.analysis = None
+    st.session_state.qa_history = []
 
 
 def _header(tag: str) -> None:
@@ -118,7 +137,7 @@ def _ask(question: str, frames: dict) -> None:
 # ---------------------------------------------------------------- state ---
 for key, default in [
     ("frames", {}), ("analysis", None), ("qa_history", []),
-    ("_frames_signature", None), ("pending_question", None),
+    ("_ingested_filenames", set()), ("pending_question", None),
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
@@ -146,14 +165,17 @@ with st.sidebar:
     st.divider()
 
     if st.session_state.frames:
-        frames_now = st.session_state.frames
-        st.subheader(f"Files ({len(frames_now)})")
-        for name, df in frames_now.items():
-            st.caption(f"**{name}** — {len(df):,} rows · {len(df.columns)} cols")
+        # Ingest before rendering the file list below, not after: a file
+        # dropped into "Add more files" needs to show up in the count and
+        # per-file rows in this same rerun, not the next one.
         uploaded = st.file_uploader(
             "Add more files", type=["csv", "xlsx", "xls"], accept_multiple_files=True, key="uploader"
         )
         _ingest_files({f.name: f.getvalue() for f in uploaded} if uploaded else {})
+        frames_now = st.session_state.frames
+        st.subheader(f"Files ({len(frames_now)})")
+        for name, df in frames_now.items():
+            st.caption(f"**{name}** — {len(df):,} rows · {len(df.columns)} cols")
     else:
         uploaded = None
 
@@ -253,9 +275,7 @@ else:
     if headline and headline.metrics:
         cols = st.columns(len(headline.metrics))
         for col, m in zip(cols, headline.metrics):
-            value = m["value"]
-            display = f"{value:,.0f}" if isinstance(value, (int, float)) else str(value)
-            col.metric(m["label"], display)
+            col.metric(m["label"], format_metric_value(m["value"]))
 
     if analysis["findings"]:
         with st.container(border=True):
@@ -295,11 +315,14 @@ else:
                         st.session_state.pending_question = q
                         st.rerun()
 
-            rest = chart_items[1:]
+            # Indexed by position, not spec.title: the LLM's chart plan isn't
+            # validated for title uniqueness, and two cards sharing a title
+            # would collide on a title-based widget key and crash the render.
+            rest = list(enumerate(chart_items[1:]))
             for row_start in range(0, len(rest), 3):
                 row = rest[row_start:row_start + 3]
                 cols = st.columns(len(row))
-                for col, (spec, result) in zip(cols, row):
+                for col, (idx, (spec, result)) in zip(cols, row):
                     with col:
                         with st.container(border=True):
                             st.markdown(f"**{spec.title}**")
@@ -315,11 +338,11 @@ else:
                                             unsafe_allow_html=True)
                             b1, b2 = st.columns(2)
                             with b1:
-                                with st.popover("recipe"):
+                                with st.popover("recipe", key=f"recipe_{idx}"):
                                     st.code(f"{spec.recipe}({spec.__dict__})", language="python")
                             with b2:
                                 q = question_for_spec(spec)
-                                if q and st.button("ask", key=f"ask_{row_start}_{spec.title}"):
+                                if q and st.button("ask", key=f"ask_{idx}"):
                                     st.session_state.pending_question = q
                                     st.rerun()
 
@@ -352,7 +375,11 @@ for i, entry in enumerate(history_sorted):
                 entry["pinned"] = not entry["pinned"]
                 st.rerun()
         with q_col:
-            st.markdown(f"**{question}**")
+            # html.escape + a styled div, not st.markdown(f"**{question}**"):
+            # a typed question containing markdown syntax (stray * or _)
+            # would otherwise render mangled instead of as literal text.
+            st.markdown(f'<div style="font-weight:700">{html.escape(question)}</div>',
+                        unsafe_allow_html=True)
 
         if state == "error":
             st.error("⚠ Something went wrong running this query")
@@ -379,7 +406,14 @@ for i, entry in enumerate(history_sorted):
             if isinstance(result.result, (pd.DataFrame, pd.Series)):
                 st.dataframe(result.result)
             elif result.result is not None:
-                st.markdown(f"### {result.result}")
+                # Same reasoning as the question header above: the model's
+                # own text answer could itself contain markdown syntax, and
+                # st.markdown would render that instead of showing it as-is.
+                st.markdown(
+                    f'<div style="font-size:26px;font-weight:700;margin:6px 0">'
+                    f'{html.escape(str(result.result))}</div>',
+                    unsafe_allow_html=True,
+                )
 
             with st.expander("How this was calculated"):
                 st.code(result.code, language="python")

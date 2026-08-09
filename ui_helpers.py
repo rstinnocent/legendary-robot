@@ -44,6 +44,18 @@ def type_chip(role: str) -> str:
     return _ROLE_CHIP.get(role, "text")
 
 
+def format_metric_value(value) -> str:
+    """Comma-format a headline-metric value if it's numeric, else str() it.
+
+    pd.api.types.is_number, not isinstance(value, (int, float)): a sum/mean
+    straight out of pandas is numpy.int64/float64, and numpy.int64 is NOT a
+    Python int (numpy.float64 is a Python float, inconsistently), so the
+    isinstance form silently skipped comma formatting on any metric backed
+    by an int64 column.
+    """
+    return f"{value:,.0f}" if pd.api.types.is_number(value) else str(value)
+
+
 # ---------------------------------------------------------------------------
 # Chart captions — one deterministic line per chart, from its own table
 # ---------------------------------------------------------------------------
