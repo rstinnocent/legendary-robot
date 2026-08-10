@@ -421,6 +421,10 @@ else:
 
     st.markdown('<a name="charts"></a>', unsafe_allow_html=True)
     if chart_items:
+        st.markdown("**📊 Charts**")
+        st.caption("Automatically generated from your data — these back up the findings "
+                    "above, and any chart's \"ask\" button turns it into a follow-up "
+                    "question you can dig into below.")
         # The first chart is always visible, at the same card size as the
         # rest (st.columns(3), only the first column used) — a real chart
         # sitting right here is a much stronger "there's more to see" signal
