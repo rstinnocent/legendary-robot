@@ -186,12 +186,18 @@ with st.sidebar:
     st.session_state.backend_choice = backend_choice
 
     if backend_choice.startswith("Groq"):
-        st.session_state.api_key = st.text_input(
-            "Groq API key", type="password",
-            value=_default_api_key(),
-            help="Free, no credit card required — get one at console.groq.com/keys. "
-                 "Set as a deployment secret and this fills in automatically.",
-        )
+        _preconfigured_key = _default_api_key()
+        if _preconfigured_key:
+            # Configured via a deployment secret — nothing for a user to
+            # enter or see here, just a quiet confirmation it's connected.
+            st.session_state.api_key = _preconfigured_key
+            st.caption("✓ Connected")
+        else:
+            st.session_state.api_key = st.text_input(
+                "Groq API key", type="password",
+                help="Free, no credit card required — get one at console.groq.com/keys. "
+                     "Set as a deployment secret and this field won't show at all.",
+            )
         st.session_state.model = st.selectbox(
             "AI model", ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "openai/gpt-oss-120b"],
             help="llama-3.3-70b-versatile is the most accurate; llama-3.1-8b-instant is faster.",
