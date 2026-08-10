@@ -70,6 +70,22 @@ def _sample_data_bytes() -> dict[str, bytes]:
     return {p.name: p.read_bytes() for p in sorted(SAMPLE_DIR.glob("*.csv"))}
 
 
+def _default_api_key() -> str:
+    """Pre-fill the sidebar's API key field from whichever secret store the
+    host actually uses — st.secrets (Streamlit Community Cloud's Secrets
+    manager, TOML-based) or a plain environment variable (most other
+    hosts) — so a deployed app can be configured without the key ever
+    living in the repo. st.secrets raises if no secrets.toml exists at all
+    (the normal case for local dev), hence the try/except rather than a
+    plain lookup."""
+    try:
+        if "GROQ_API_KEY" in st.secrets:
+            return st.secrets["GROQ_API_KEY"]
+    except Exception:
+        pass
+    return os.environ.get("GROQ_API_KEY", "")
+
+
 def _build_backend():
     return (
         get_backend("groq", api_key=st.session_state.get("api_key"), model=st.session_state.get("model"))
@@ -172,8 +188,9 @@ with st.sidebar:
     if backend_choice.startswith("Groq"):
         st.session_state.api_key = st.text_input(
             "Groq API key", type="password",
-            value=os.environ.get("GROQ_API_KEY", ""),
-            help="Free, no credit card required — get one at console.groq.com/keys",
+            value=_default_api_key(),
+            help="Free, no credit card required — get one at console.groq.com/keys. "
+                 "Set as a deployment secret and this fills in automatically.",
         )
         st.session_state.model = st.selectbox(
             "AI model", ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "openai/gpt-oss-120b"],
