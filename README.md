@@ -89,7 +89,7 @@ gets it silently wrong. There is an eval case for exactly this.
 | Auto-analysis engine | Local pandas profiler + constrained chart-plan (`profiler.py`, `chart_plan.py`, `charts.py`, `findings.py`) | The overview screen shown before any question is asked. The model picks from a fixed menu of 6 chart recipes and only *phrases* pre-computed findings — it never produces a number itself. See below |
 | UI logic | `ui_helpers.py` | Pure functions the UI runs on — chart captions, calm/error/normal answer classification, join-prioritized suggested questions — kept out of `app.py` so they're unit-testable the same way the engine is |
 | Correctness | 12-case Q&A eval set + 3-check auto-analysis eval (`evals/`), all against hand-computed or independently-recomputed answers | "Correct" is the product. See below |
-| Testing | pytest — 169 tests, LLM mocked via `FakeBackend` | Verifies loading, joins, charts, the safety filter, the profiler's column-role logic, chart-plan validation, UI display logic, and both eval sets — all without hitting a live API |
+| Testing | pytest — 176 tests, LLM mocked via `FakeBackend` | Verifies loading, joins, charts, the safety filter, the profiler's column-role logic, chart-plan validation, UI display logic, and both eval sets — all without hitting a live API |
 
 ## How this maps to the acceptance criteria
 
@@ -147,7 +147,7 @@ A data Q&A tool that is confidently wrong is worse than one that says nothing,
 so correctness is measured rather than eyeballed.
 
 ```bash
-pytest                          # 145 unit tests, no API key needed
+pytest                          # 176 unit tests, no API key needed
 python evals/run_eval.py        # runs the 12-case Q&A set against the live model
 python evals/run_eval.py --runs 3            # repeat to see run-to-run variance
 python evals/eval_auto_analysis.py           # checks the auto-analysis pipeline live
