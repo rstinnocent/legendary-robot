@@ -61,6 +61,15 @@ st.markdown(
 .in-empty{border:2px dashed rgba(0,0,0,.35);border-radius:6px;padding:48px 20px;
   text-align:center;color:rgba(0,0,0,.55)}
 .in-empty .sub{font-size:12.5px;margin-top:8px;color:rgba(0,0,0,.4)}
+/* Chat input: plain grey by default, easy to miss as the app's main
+   interaction point. [data-testid="stChatInput"] itself is an unstyled
+   wrapper — its first child div is the actual visible box (background,
+   border-radius) — so the accent has to go there, in the same red as the
+   Analyze button, to read as "type here" rather than blend into the page. */
+[data-testid="stChatInput"] > div{
+  border:2px solid #FF4B4B!important;
+  box-shadow:0 0 0 3px rgba(255,75,75,.15)!important;
+}
 </style>
 """,
     unsafe_allow_html=True,
