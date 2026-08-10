@@ -27,11 +27,11 @@ from findings import compute_findings, phrase_findings
 from profiler import detect_join_keys, profile_frames
 from ui_helpers import (
     chart_caption,
+    chart_section_label,
     classify_answer_state,
     dataframe_to_csv_bytes,
     describe_join,
     format_metric_value,
-    more_charts_label,
     pluralize,
     question_for_spec,
     safe_download_filename,
@@ -430,35 +430,22 @@ else:
 
     st.markdown('<a name="charts"></a>', unsafe_allow_html=True)
     if chart_items:
-        st.markdown("**📊 Charts**")
-        st.caption("Automatically generated from your data — these back up the findings "
-                    "above, and any chart's \"ask\" button turns it into a follow-up "
-                    "question you can dig into below.")
-        # The first chart is always visible, at the same card size as the
-        # rest (st.columns(3), only the first column used) — a real chart
-        # sitting right here is a much stronger "there's more to see" signal
-        # than a label on a fully collapsed section, which one user missed
-        # entirely, not realizing it was clickable.
-        first_col, _, _ = st.columns(3)
-        with first_col:
-            _render_chart_card(0, *chart_items[0])
-
-        # Indexed from 1, not 0: the first chart above already claimed
-        # index 0 for its widget keys, and these must stay unique.
-        remaining = list(enumerate(chart_items[1:], start=1))
-        if remaining:
-            label = more_charts_label([spec.title for _, (spec, _) in remaining])
-            with st.expander(label, expanded=False):
-                for row_start in range(0, len(remaining), 3):
-                    row = remaining[row_start:row_start + 3]
-                    # Always 3 columns, even on a trailing row with fewer
-                    # than 3 charts: st.columns(len(row)) would stretch a
-                    # lone leftover chart to the full row width instead of
-                    # staying card-sized.
-                    cols = st.columns(3)
-                    for col, (idx, (spec, result)) in zip(cols, row):
-                        with col:
-                            _render_chart_card(idx, spec, result)
+        # Everything collapsed, one uniform grid, every card the same size —
+        # kept minimal rather than always showing a chart up front. The
+        # label itself carries the "click to view" invitation so the
+        # section still reads as worth opening, not just a neutral count.
+        items = list(enumerate(chart_items))
+        label = chart_section_label([spec.title for _, (spec, _) in items])
+        with st.expander(label, expanded=False):
+            for row_start in range(0, len(items), 3):
+                row = items[row_start:row_start + 3]
+                # Always 3 columns, even on a trailing row with fewer than 3
+                # charts: st.columns(len(row)) would stretch a lone leftover
+                # chart to the full row width instead of staying card-sized.
+                cols = st.columns(3)
+                for col, (idx, (spec, result)) in zip(cols, row):
+                    with col:
+                        _render_chart_card(idx, spec, result)
 
 st.divider()
 

@@ -8,11 +8,11 @@ from core import ExecutionResult
 from profiler import JoinKey, detect_join_keys, profile_frames
 from ui_helpers import (
     chart_caption,
+    chart_section_label,
     classify_answer_state,
     dataframe_to_csv_bytes,
     describe_join,
     format_metric_value,
-    more_charts_label,
     pluralize,
     prettify_column_name,
     question_for_spec,
@@ -261,33 +261,33 @@ def test_describe_join_singular_match_count():
 
 
 # ---------------------------------------------------------------------------
-# more_charts_label
+# chart_section_label
 # ---------------------------------------------------------------------------
 
-def test_more_charts_label_names_titles_within_max():
-    label = more_charts_label(["Grade Distribution", "Attendance Over Time"])
-    assert label == "👀 See 2 more charts: Grade Distribution, Attendance Over Time — click to view"
+def test_chart_section_label_names_titles_within_max():
+    label = chart_section_label(["Department Distribution", "Grade Distribution"])
+    assert label == "📊 2 charts: Department Distribution, Grade Distribution — click to view"
 
 
-def test_more_charts_label_truncates_with_remainder_count():
-    label = more_charts_label(
-        ["Grade Distribution", "Attendance Over Time", "Exit Type by Reason", "Monthly Working Days"]
+def test_chart_section_label_truncates_with_remainder_count():
+    label = chart_section_label(
+        ["Department Distribution", "Grade Distribution", "Attendance Over Time", "Exit Type by Reason"]
     )
-    assert label == "👀 See 4 more charts: Grade Distribution, Attendance Over Time +2 more — click to view"
+    assert label == "📊 4 charts: Department Distribution, Grade Distribution +2 more — click to view"
 
 
-def test_more_charts_label_empty_when_nothing_remains():
-    assert more_charts_label([]) == ""
+def test_chart_section_label_empty():
+    assert chart_section_label([]) == "📊 Charts"
 
 
-def test_more_charts_label_singular_phrasing():
-    label = more_charts_label(["Grade Distribution"])
-    assert label == "👀 See 1 more chart: Grade Distribution — click to view"
+def test_chart_section_label_singular_phrasing():
+    label = chart_section_label(["Grade Distribution"])
+    assert label == "📊 1 chart: Grade Distribution — click to view"
 
 
-def test_more_charts_label_respects_max_named():
-    label = more_charts_label(["A", "B", "C"], max_named=1)
-    assert label == "👀 See 3 more charts: A +2 more — click to view"
+def test_chart_section_label_respects_max_named():
+    label = chart_section_label(["A", "B", "C"], max_named=1)
+    assert label == "📊 3 charts: A +2 more — click to view"
 
 
 # ---------------------------------------------------------------------------
