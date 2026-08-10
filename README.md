@@ -129,17 +129,19 @@ into one plain sentence each — never computing them — and if that call fails
 or returns something malformed, the deterministic description is shown
 as-is instead.
 
-The charts themselves render inside a collapsible section, closed by
-default, labeled with the actual chart titles (e.g. "5 charts: Department
-Distribution, Grade Distribution +3 more") rather than a plain "Charts (5)"
-— so it's clear what's behind the click before you open it, and the Q&A
-section underneath isn't pushed off-screen by a wall of charts on first
-load. Inside, every chart sits in the same 3-across grid at the same card
-size — no chart is singled out as a larger "hero," which used to make the
-section taller than it needed to be for no real benefit. Every card
-carries an "ask" button that turns that chart's spec back into a
-plain-English question (`ui_helpers.question_for_spec`) and runs it
-through the real Q&A engine.
+The first chart always renders immediately, no click required, at the same
+card size every chart uses — a real chart sitting on the page is a much
+stronger sign that there's more worth exploring than a label ever was; an
+early version collapsed all the charts by default, and a user simply
+missed them, not realizing the label was clickable. Any remaining charts
+sit in a 3-across grid inside a collapsed section labeled with an explicit
+invitation and their actual titles (e.g. "👀 See 3 more charts: Grade
+Distribution, Attendance Over Time +1 more — click to view") rather than a
+plain "Charts (4)", so it's clear there's something worth a click, and the
+Q&A section underneath isn't pushed off-screen by a wall of charts on
+first load. Every card, first or otherwise, carries an "ask" button that
+turns that chart's spec back into a plain-English question
+(`ui_helpers.question_for_spec`) and runs it through the real Q&A engine.
 
 ## Evals — how I know the answers are right
 

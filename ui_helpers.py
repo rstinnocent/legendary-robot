@@ -186,25 +186,29 @@ def describe_join(jk) -> str:
     return f"{left} and {right} can be linked by {key_desc} ({pluralize(jk.overlap_count, 'matching record')})"
 
 
-def chart_section_label(titles: list[str], max_named: int = 2) -> str:
-    """Label for the collapsed charts expander — names the first few charts
-    rather than just saying 'Charts', so the count and the "+N more" tail
-    tell someone whether it's worth a click before they open it."""
-    if not titles:
-        return "📊 Charts"
-    shown = ", ".join(titles[:max_named])
-    remainder = len(titles) - max_named
+def more_charts_label(remaining_titles: list[str], max_named: int = 2) -> str:
+    """Label for the 'more charts' expander that sits below one always-visible
+    chart. Naming a plain collapsed section 'Charts' wasn't enough of a
+    click affordance on its own — a user reported missing the charts
+    entirely because nothing about the label read as an invitation. This
+    is phrased as one ('see N more charts... click to view'), and it only
+    ever has to earn a click for the *remaining* charts, since the first is
+    already visible without any click at all. Empty string (render nothing)
+    when there's nothing left to show."""
+    if not remaining_titles:
+        return ""
+    shown = ", ".join(remaining_titles[:max_named])
+    remainder = len(remaining_titles) - max_named
     tail = f" +{remainder} more" if remainder > 0 else ""
-    return f"📊 {len(titles)} charts: {shown}{tail}"
+    return f"👀 See {pluralize(len(remaining_titles), 'more chart')}: {shown}{tail} — click to view"
 
 
 def schema_section_label(profiles: dict[str, FrameProfile], join_keys: list[JoinKey],
                           max_named: int = 3) -> str:
-    """Label for the collapsed file-schema expander — same idea as
-    chart_section_label: name the files and say whether Crosswalk found a
-    way to link them, so someone can tell it's worth a click (or that it
-    isn't, and they can go straight to asking a question) without opening
-    a wall of per-column tables first."""
+    """Label for the collapsed file-schema expander: name the files and say
+    whether Crosswalk found a way to link them, so someone can tell it's
+    worth a click (or that it isn't, and they can go straight to asking a
+    question) without opening a wall of per-column tables first."""
     names = list(profiles.keys())
     if not names:
         return "📋 Files"

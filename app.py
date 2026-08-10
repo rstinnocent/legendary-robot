@@ -27,11 +27,11 @@ from findings import compute_findings, phrase_findings
 from profiler import detect_join_keys, profile_frames
 from ui_helpers import (
     chart_caption,
-    chart_section_label,
     classify_answer_state,
     dataframe_to_csv_bytes,
     describe_join,
     format_metric_value,
+    more_charts_label,
     pluralize,
     question_for_spec,
     safe_download_filename,
@@ -199,6 +199,36 @@ def _ask(question: str, frames: dict) -> None:
             st.error(_describe_backend_error(exc))
             return
     st.session_state.qa_history.insert(0, {"question": question, "result": result, "pinned": False})
+
+
+def _render_chart_card(idx: int, spec, result) -> None:
+    """One chart card's contents — title, chart/table, caption, and the
+    details/ask actions. Shared between the always-visible first chart and
+    the grid of remaining ones, indexed by position (not spec.title): the
+    LLM's chart plan isn't validated for title uniqueness, and two cards
+    sharing a title would collide on a title-based widget key."""
+    with st.container(border=True):
+        st.markdown(f"**{spec.title}**")
+        if result.error:
+            st.warning(result.error)
+        elif result.figure is not None:
+            st.pyplot(result.figure)
+        elif result.table is not None:
+            st.dataframe(result.table)
+        caption = chart_caption(spec, result)
+        if caption:
+            st.markdown(f'<div class="in-caption">{html.escape(caption)}</div>', unsafe_allow_html=True)
+        b1, b2 = st.columns(2)
+        q = question_for_spec(spec)
+        with b1:
+            with st.popover("details", key=f"recipe_{idx}"):
+                if q:
+                    st.caption(f"This chart answers: *{q}*")
+                st.code(f"{spec.recipe}({spec.__dict__})", language="python")
+        with b2:
+            if q and st.button("ask", key=f"ask_{idx}"):
+                st.session_state.pending_question = q
+                st.rerun()
 
 
 # ---------------------------------------------------------------- state ---
@@ -391,44 +421,31 @@ else:
 
     st.markdown('<a name="charts"></a>', unsafe_allow_html=True)
     if chart_items:
-        label = chart_section_label([spec.title for spec, _ in chart_items])
-        with st.expander(label, expanded=False):
-            # One uniform grid, every card the same size — no featured/hero
-            # chart. Indexed by position, not spec.title: the LLM's chart
-            # plan isn't validated for title uniqueness, and two cards
-            # sharing a title would collide on a title-based widget key.
-            items = list(enumerate(chart_items))
-            for row_start in range(0, len(items), 3):
-                row = items[row_start:row_start + 3]
-                # Always 3 columns, even on a trailing row with fewer than 3
-                # charts: st.columns(len(row)) would stretch a lone leftover
-                # chart to the full row width instead of staying card-sized.
-                cols = st.columns(3)
-                for col, (idx, (spec, result)) in zip(cols, row):
-                    with col:
-                        with st.container(border=True):
-                            st.markdown(f"**{spec.title}**")
-                            if result.error:
-                                st.warning(result.error)
-                            elif result.figure is not None:
-                                st.pyplot(result.figure)
-                            elif result.table is not None:
-                                st.dataframe(result.table)
-                            caption = chart_caption(spec, result)
-                            if caption:
-                                st.markdown(f'<div class="in-caption">{html.escape(caption)}</div>',
-                                            unsafe_allow_html=True)
-                            b1, b2 = st.columns(2)
-                            q = question_for_spec(spec)
-                            with b1:
-                                with st.popover("details", key=f"recipe_{idx}"):
-                                    if q:
-                                        st.caption(f"This chart answers: *{q}*")
-                                    st.code(f"{spec.recipe}({spec.__dict__})", language="python")
-                            with b2:
-                                if q and st.button("ask", key=f"ask_{idx}"):
-                                    st.session_state.pending_question = q
-                                    st.rerun()
+        # The first chart is always visible, at the same card size as the
+        # rest (st.columns(3), only the first column used) — a real chart
+        # sitting right here is a much stronger "there's more to see" signal
+        # than a label on a fully collapsed section, which one user missed
+        # entirely, not realizing it was clickable.
+        first_col, _, _ = st.columns(3)
+        with first_col:
+            _render_chart_card(0, *chart_items[0])
+
+        # Indexed from 1, not 0: the first chart above already claimed
+        # index 0 for its widget keys, and these must stay unique.
+        remaining = list(enumerate(chart_items[1:], start=1))
+        if remaining:
+            label = more_charts_label([spec.title for _, (spec, _) in remaining])
+            with st.expander(label, expanded=False):
+                for row_start in range(0, len(remaining), 3):
+                    row = remaining[row_start:row_start + 3]
+                    # Always 3 columns, even on a trailing row with fewer
+                    # than 3 charts: st.columns(len(row)) would stretch a
+                    # lone leftover chart to the full row width instead of
+                    # staying card-sized.
+                    cols = st.columns(3)
+                    for col, (idx, (spec, result)) in zip(cols, row):
+                        with col:
+                            _render_chart_card(idx, spec, result)
 
 st.divider()
 
