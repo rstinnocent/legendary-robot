@@ -205,7 +205,7 @@ requirements.txt
 
 ## Known limitations
 
-See `WRITEUP.md`. In short: generated code is guarded by a regex blocklist and
+See `WRITEUP_DRAFT.md`. In short: generated code is guarded by a regex blocklist and
 restricted builtins rather than a real sandbox; everything loads into memory,
 so this is not for files beyond a few hundred MB; and each question starts
 fresh, with no memory of the previous one.
