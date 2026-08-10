@@ -31,7 +31,8 @@ SAMPLE_DIR = Path(__file__).resolve().parent.parent / "sample_data"
 
 REFUSAL_MARKERS = [
     "no ", "not ", "cannot", "can't", "unavailable", "missing", "does not exist",
-    "doesn't exist", "n/a", "unable", "no column", "not present", "not found",
+    "doesn't exist", "does not include", "doesn't include", "n/a", "unable",
+    "no column", "not present", "not found",
 ]
 
 
