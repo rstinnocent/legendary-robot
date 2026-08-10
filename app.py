@@ -169,6 +169,22 @@ def _show_welcome_dialog() -> None:
         st.rerun()
 
 
+def _describe_backend_error(exc: Exception) -> str:
+    """Groq's free tier caps total tokens per day, shared across every model
+    — easy to hit during a demo/eval session. That error is common enough,
+    and its raw form technical enough, that it earns a specific, actionable
+    message instead of the generic fallback."""
+    try:
+        from groq import RateLimitError
+    except ImportError:  # pragma: no cover - groq is a hard dependency
+        RateLimitError = ()
+    if isinstance(exc, RateLimitError) or "rate_limit_exceeded" in str(exc):
+        return ("Groq's free daily limit has been reached for this model. Try "
+                 "switching to a different model in the sidebar under **AI "
+                 "model**, or wait a few minutes and try again.")
+    return f"The AI provider call failed: {exc}"
+
+
 def _ask(question: str, frames: dict) -> None:
     """Run one question through the Q&A engine and prepend it to history."""
     try:
@@ -180,7 +196,7 @@ def _ask(question: str, frames: dict) -> None:
         try:
             result = answer_question(question, frames, backend)
         except Exception as exc:  # network / API errors from the backend itself
-            st.error(f"The AI provider call failed: {exc}")
+            st.error(_describe_backend_error(exc))
             return
     st.session_state.qa_history.insert(0, {"question": question, "result": result, "pinned": False})
 
@@ -314,13 +330,17 @@ if analyze_clicked:
                       f"Analyze again. ({exc})")
             st.stop()
         except Exception as exc:
-            st.error(f"The AI provider call failed: {exc}")
+            st.error(_describe_backend_error(exc))
             st.stop()
 
         validated = validate_plan(raw_plan, profiles, join_keys)
         chart_results = execute_chart_plan(validated, frames, profiles)
         findings = compute_findings(frames, profiles, join_keys)
-        phrasings = phrase_findings(findings, backend)
+        try:
+            phrasings = phrase_findings(findings, backend)
+        except Exception as exc:
+            st.error(_describe_backend_error(exc))
+            st.stop()
 
     st.session_state.analysis = {
         "specs": validated, "chart_results": chart_results,
