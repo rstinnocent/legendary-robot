@@ -49,6 +49,20 @@ answer to the top and exporting a table result as CSV.
 No Groq key handy, or want zero external dependency? Switch the sidebar to
 **Ollama (local)** — run `ollama serve` and `ollama pull llama3.2` first.
 
+## Deploying (Streamlit Community Cloud)
+
+1. [share.streamlit.io](https://share.streamlit.io) → **Deploy a public app** →
+   pick this repo and the branch you want live.
+2. **Main file path: `app.py`** — it sits at the repo root, not in a
+   subfolder, so don't prefix it with the repo or folder name.
+3. Before clicking Deploy, open **Advanced settings → Secrets** and paste:
+   ```toml
+   GROQ_API_KEY = "gsk_your_key_here"
+   ```
+   This is what lets an evaluator open the app and start asking questions
+   immediately, with no key to find or paste in — the sidebar's API key
+   field only appears at all when this secret is *not* set.
+
 ## Sample data
 
 Three files that mirror what an HR/People Ops analyst actually exports, and
@@ -75,7 +89,7 @@ gets it silently wrong. There is an eval case for exactly this.
 | Auto-analysis engine | Local pandas profiler + constrained chart-plan (`profiler.py`, `chart_plan.py`, `charts.py`, `findings.py`) | The overview screen shown before any question is asked. The model picks from a fixed menu of 6 chart recipes and only *phrases* pre-computed findings — it never produces a number itself. See below |
 | UI logic | `ui_helpers.py` | Pure functions the UI runs on — chart captions, calm/error/normal answer classification, join-prioritized suggested questions — kept out of `app.py` so they're unit-testable the same way the engine is |
 | Correctness | 12-case Q&A eval set + 3-check auto-analysis eval (`evals/`), all against hand-computed or independently-recomputed answers | "Correct" is the product. See below |
-| Testing | pytest — 145 tests, LLM mocked via `FakeBackend` | Verifies loading, joins, charts, the safety filter, the profiler's column-role logic, chart-plan validation, UI display logic, and both eval sets — all without hitting a live API |
+| Testing | pytest — 169 tests, LLM mocked via `FakeBackend` | Verifies loading, joins, charts, the safety filter, the profiler's column-role logic, chart-plan validation, UI display logic, and both eval sets — all without hitting a live API |
 
 ## How this maps to the acceptance criteria
 

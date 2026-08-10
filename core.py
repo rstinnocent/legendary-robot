@@ -99,6 +99,15 @@ Rules:
 - If the answer is a number, string, or table, assign it to a variable named `result`.
 - If a chart is the clearest answer, build it with matplotlib and leave the figure \
 open (no plt.show()); still assign a short text summary to `result`.
+- Before writing any calculation, check whether every concept in the question is \
+an actual column name in the schemas above. If one is not, STOP — do not compute a \
+stand-in metric from other columns just because it seems plausible or related. \
+For example, if asked for a "satisfaction score" and no such column exists, do not \
+quietly repurpose an unrelated column (like a discount rate, or a count of repeat \
+visits) as if it were the answer just because it's numeric and loosely related — \
+that is exactly the wrong move, even though the code runs without error. Instead \
+assign to `result` a short string saying the data doesn't include that column, \
+naming the closest columns that do exist, if any.
 - Do not use file I/O, network calls, `import os`, `import sys`, `eval`, `exec`, \
 or any dunder attributes.
 - Return ONLY the Python code. No explanation, no markdown fences.
