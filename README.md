@@ -41,9 +41,9 @@ all. Then try a question like:
 - "What is the average performance rating by department?" *(there is no such
   column — the app should say so rather than invent a number)*
 
-Every chart card also has an **"ask about this"** button that runs that
-chart's underlying question through the same Q&A engine and drops it into
-the question history below — and the Q&A history itself supports pinning an
+Every chart card also has an **"ask"** button that runs that chart's
+underlying question through the same Q&A engine and drops it into the
+question history below — and the Q&A history itself supports pinning an
 answer to the top and exporting a table result as CSV.
 
 No Groq key handy, or want zero external dependency? Switch the sidebar to
@@ -134,12 +134,12 @@ default, labeled with the actual chart titles (e.g. "5 charts: Department
 Distribution, Grade Distribution +3 more") rather than a plain "Charts (5)"
 — so it's clear what's behind the click before you open it, and the Q&A
 section underneath isn't pushed off-screen by a wall of charts on first
-load. The first chart is shown larger as a "hero" (constrained to about
-2/3 of the page width, not the full page — `st.pyplot` preserves a
-figure's aspect ratio when stretched, so full-width also means very tall);
-the rest sit in a 3-across grid. Every card carries an "ask about this"
-button that turns that chart's spec back into a plain-English question
-(`ui_helpers.question_for_spec`) and runs it through the real Q&A engine.
+load. Inside, every chart sits in the same 3-across grid at the same card
+size — no chart is singled out as a larger "hero," which used to make the
+section taller than it needed to be for no real benefit. Every card
+carries an "ask" button that turns that chart's spec back into a
+plain-English question (`ui_helpers.question_for_spec`) and runs it
+through the real Q&A engine.
 
 ## Evals — how I know the answers are right
 

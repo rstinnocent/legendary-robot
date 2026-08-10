@@ -198,6 +198,30 @@ def chart_section_label(titles: list[str], max_named: int = 2) -> str:
     return f"📊 {len(titles)} charts: {shown}{tail}"
 
 
+def schema_section_label(profiles: dict[str, FrameProfile], join_keys: list[JoinKey],
+                          max_named: int = 3) -> str:
+    """Label for the collapsed file-schema expander — same idea as
+    chart_section_label: name the files and say whether Crosswalk found a
+    way to link them, so someone can tell it's worth a click (or that it
+    isn't, and they can go straight to asking a question) without opening
+    a wall of per-column tables first."""
+    names = list(profiles.keys())
+    if not names:
+        return "📋 Files"
+    shown = ", ".join(names[:max_named])
+    remainder = len(names) - max_named
+    tail = f" +{remainder} more" if remainder > 0 else ""
+    if len(names) <= 1:
+        link_tail = ""
+    elif not join_keys:
+        link_tail = " · no shared columns found yet"
+    elif len(join_keys) == 1:
+        link_tail = f" · linked by {prettify_column_name(join_keys[0].left_column)}"
+    else:
+        link_tail = f" · {pluralize(len(join_keys), 'link')} found"
+    return f"📋 {pluralize(len(names), 'file')}: {shown}{tail}{link_tail}"
+
+
 # ---------------------------------------------------------------------------
 # Answer-state classification — drives which of 3e's boxes to render
 # ---------------------------------------------------------------------------

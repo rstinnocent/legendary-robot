@@ -35,6 +35,7 @@ from ui_helpers import (
     pluralize,
     question_for_spec,
     safe_download_filename,
+    schema_section_label,
     suggested_questions,
     type_chip,
 )
@@ -152,6 +153,22 @@ def _header(tag: str) -> None:
     )
 
 
+@st.dialog("How Crosswalk works")
+def _show_welcome_dialog() -> None:
+    st.markdown(
+        "1. **Upload your files** — CSV or Excel. Files that share a common "
+        "column, like an employee ID, get linked automatically.\n"
+        "2. **Click Analyze** for an instant overview — headline numbers, "
+        "charts, and what stands out — or skip straight to asking a "
+        "question.\n"
+        "3. **Ask anything in plain English.** Crosswalk writes and runs "
+        "the analysis for you, and always shows its work so you can check "
+        "it."
+    )
+    if st.button("Got it — let's go", type="primary", width="stretch"):
+        st.rerun()
+
+
 def _ask(question: str, frames: dict) -> None:
     """Run one question through the Q&A engine and prepend it to history."""
     try:
@@ -171,7 +188,7 @@ def _ask(question: str, frames: dict) -> None:
 # ---------------------------------------------------------------- state ---
 for key, default in [
     ("frames", {}), ("analysis", None), ("qa_history", []),
-    ("pending_question", None),
+    ("pending_question", None), ("welcome_seen", False),
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
@@ -233,6 +250,16 @@ frames = st.session_state.frames
 # ---------------------------------------------------------- empty state ---
 if not frames:
     _header("no files yet")
+    if not st.session_state.welcome_seen:
+        # Set before opening, not inside the button handler: this way the
+        # dialog is guaranteed to auto-open only once per session no matter
+        # how it's dismissed (the "Got it" button, the dialog's own close
+        # X, or clicking outside it) — only the manual link below can
+        # reopen it after that.
+        st.session_state.welcome_seen = True
+        _show_welcome_dialog()
+    if st.button("❔ How does this work?"):
+        _show_welcome_dialog()
     st.markdown(
         '<div class="in-empty">Drop your CSV or Excel files here'
         '<div class="sub">upload the files you\'d normally join together — '
@@ -267,6 +294,11 @@ with mid:
         help="Get an instant summary: key numbers, charts, and what stands out in your data.",
     )
 
+if not st.session_state.analysis:
+    st.caption("Click **Analyze** above for an instant overview — key numbers, charts, and "
+               "what stands out — or skip straight to **asking a question** near the bottom "
+               "of the page.")
+
 if analyze_clicked:
     try:
         backend = _build_backend()
@@ -299,23 +331,22 @@ analysis = st.session_state.analysis
 
 # ---------------------------------------------------- 3b: schema preview --
 if not analysis:
-    st.caption("Here's what we found in your files:")
-    for name, profile in profiles.items():
-        st.markdown(f"**{name}**")
-        schema_df = pd.DataFrame(
-            {"Column": list(profile.columns.keys()),
-             "Type": [type_chip(c.role) for c in profile.columns.values()]}
-        )
-        st.dataframe(schema_df, hide_index=True)
-    for jk in join_keys:
-        st.markdown(
-            f'<div class="in-join">🔗 {html.escape(describe_join(jk))}</div>',
-            unsafe_allow_html=True,
-        )
-    if not join_keys:
-        st.caption("We didn't find a common column to link these files on yet — "
-                    "you can still ask questions about each one individually.")
-    st.caption("Ready when you are — click **Analyze** above for an instant overview.")
+    with st.expander(schema_section_label(profiles, join_keys), expanded=False):
+        for name, profile in profiles.items():
+            st.markdown(f"**{name}**")
+            schema_df = pd.DataFrame(
+                {"Column": list(profile.columns.keys()),
+                 "Type": [type_chip(c.role) for c in profile.columns.values()]}
+            )
+            st.dataframe(schema_df, hide_index=True)
+        for jk in join_keys:
+            st.markdown(
+                f'<div class="in-join">🔗 {html.escape(describe_join(jk))}</div>',
+                unsafe_allow_html=True,
+            )
+        if not join_keys and len(profiles) > 1:
+            st.caption("We didn't find a common column to link these files on yet — "
+                        "you can still ask questions about each one individually.")
 
 # ------------------------------------------------------------ 3c: overview
 else:
@@ -342,41 +373,17 @@ else:
     if chart_items:
         label = chart_section_label([spec.title for spec, _ in chart_items])
         with st.expander(label, expanded=False):
-            hero_spec, hero_result = chart_items[0]
-            # Constrained to ~2/3 width rather than the full page: st.pyplot
-            # preserves the figure's own aspect ratio when stretched, so a
-            # full-width container blows the height up proportionally too.
-            hero_col, _ = st.columns([2, 1])
-            with hero_col, st.container(border=True):
-                st.markdown(f"**{hero_spec.title}**")
-                if hero_result.error:
-                    st.warning(hero_result.error)
-                elif hero_result.figure is not None:
-                    st.pyplot(hero_result.figure)
-                elif hero_result.table is not None:
-                    st.dataframe(hero_result.table)
-                caption = chart_caption(hero_spec, hero_result)
-                if caption:
-                    st.markdown(f'<div class="in-caption">{html.escape(caption)}</div>', unsafe_allow_html=True)
-                act1, act2 = st.columns(2)
-                q = question_for_spec(hero_spec)
-                with act1:
-                    with st.popover("view details"):
-                        if q:
-                            st.caption(f"This chart answers: *{q}*")
-                        st.code(f"{hero_spec.recipe}({hero_spec.__dict__})", language="python")
-                with act2:
-                    if q and st.button("ask about this", key="ask_hero"):
-                        st.session_state.pending_question = q
-                        st.rerun()
-
-            # Indexed by position, not spec.title: the LLM's chart plan isn't
-            # validated for title uniqueness, and two cards sharing a title
-            # would collide on a title-based widget key and crash the render.
-            rest = list(enumerate(chart_items[1:]))
-            for row_start in range(0, len(rest), 3):
-                row = rest[row_start:row_start + 3]
-                cols = st.columns(len(row))
+            # One uniform grid, every card the same size — no featured/hero
+            # chart. Indexed by position, not spec.title: the LLM's chart
+            # plan isn't validated for title uniqueness, and two cards
+            # sharing a title would collide on a title-based widget key.
+            items = list(enumerate(chart_items))
+            for row_start in range(0, len(items), 3):
+                row = items[row_start:row_start + 3]
+                # Always 3 columns, even on a trailing row with fewer than 3
+                # charts: st.columns(len(row)) would stretch a lone leftover
+                # chart to the full row width instead of staying card-sized.
+                cols = st.columns(3)
                 for col, (idx, (spec, result)) in zip(cols, row):
                     with col:
                         with st.container(border=True):

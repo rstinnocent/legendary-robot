@@ -17,6 +17,7 @@ from ui_helpers import (
     prettify_column_name,
     question_for_spec,
     safe_download_filename,
+    schema_section_label,
     suggested_questions,
     type_chip,
 )
@@ -282,6 +283,49 @@ def test_chart_section_label_empty():
 def test_chart_section_label_respects_max_named():
     label = chart_section_label(["A", "B", "C"], max_named=1)
     assert label == "📊 3 charts: A +2 more"
+
+
+# ---------------------------------------------------------------------------
+# schema_section_label
+# ---------------------------------------------------------------------------
+
+def test_schema_section_label_single_file_has_no_link_tail():
+    label = schema_section_label({"employees": None}, [])
+    assert label == "📋 1 file: employees"
+
+
+def test_schema_section_label_multi_file_no_joins_found():
+    label = schema_section_label({"attendance": None, "orders": None}, [])
+    assert label == "📋 2 files: attendance, orders · no shared columns found yet"
+
+
+def test_schema_section_label_single_join_names_the_column():
+    jk = JoinKey(left_frame="attendance", left_column="employee_id",
+                 right_frame="employees", right_column="employee_id",
+                 overlap_count=40, overlap_ratio=1.0)
+    label = schema_section_label({"attendance": None, "employees": None}, [jk])
+    assert label == "📋 2 files: attendance, employees · linked by Employee ID"
+
+
+def test_schema_section_label_multiple_joins_report_count():
+    jk1 = JoinKey(left_frame="attendance", left_column="employee_id",
+                  right_frame="employees", right_column="employee_id",
+                  overlap_count=40, overlap_ratio=1.0)
+    jk2 = JoinKey(left_frame="exits", left_column="employee_id",
+                  right_frame="employees", right_column="employee_id",
+                  overlap_count=9, overlap_ratio=1.0)
+    label = schema_section_label({"attendance": None, "employees": None, "exits": None}, [jk1, jk2])
+    assert label == "📋 3 files: attendance, employees, exits · 2 links found"
+
+
+def test_schema_section_label_truncates_with_remainder_count():
+    profiles = {"a": None, "b": None, "c": None, "d": None}
+    label = schema_section_label(profiles, [], max_named=2)
+    assert label == "📋 4 files: a, b +2 more · no shared columns found yet"
+
+
+def test_schema_section_label_empty():
+    assert schema_section_label({}, []) == "📋 Files"
 
 
 # ---------------------------------------------------------------------------
